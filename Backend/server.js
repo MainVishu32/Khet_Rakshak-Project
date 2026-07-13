@@ -4,40 +4,68 @@ const express = require("express");
 const cors = require("cors");
 const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration
+// Allowed frontend origins
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
+  "https://khet-rakshak-project.vercel.app",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allows Postman, browser address bar and server-to-server requests
-      if (!origin) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow Thunder Client, Postman and server-to-server requests
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    const isExactAllowedOrigin = allowedOrigins.includes(origin);
 
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+    // Allow Vercel-generated deployment URLs
+    const isVercelDeployment =
+      origin.startsWith("https://khet-rakshak-project-") &&
+      origin.endsWith(".vercel.app");
 
-// Body parsers
+    if (isExactAllowedOrigin || isVercelDeployment) {
+      return callback(null, true);
+    }
+
+    console.error("Blocked CORS origin:", origin);
+    return callback(null, false);
+  },
+
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
+
+  credentials: true,
+};
+
+// CORS must come before routes
+app.use(cors(corsOptions));
+
+// Body parsers must come before routes
 app.use(express.json());
-app.use("/api/auth", authRoutes);
 app.use(express.urlencoded({ extended: true }));
 
-// Routes must come after CORS
+// Authentication routes
+app.use("/api/auth", authRoutes);
+
+// Root route
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -45,6 +73,7 @@ app.get("/", (req, res) => {
   });
 });
 
+// PostgreSQL health route
 app.get("/api/health", async (req, res) => {
   try {
     const result = await pool.query(
@@ -57,6 +86,8 @@ app.get("/api/health", async (req, res) => {
       databaseTime: result.rows[0].database_time,
     });
   } catch (error) {
+    console.error("Database health error:", error);
+
     res.status(500).json({
       success: false,
       message: "PostgreSQL connection failed",
@@ -66,5 +97,5 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend running at http://localhost:${PORT}`);
+  console.log(`Backend running on port ${PORT}`);
 });
