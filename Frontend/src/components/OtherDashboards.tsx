@@ -3,24 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { 
-  CheckCircle2, AlertTriangle, Play, Upload, ChevronRight, 
+import React, { useEffect, useState } from 'react';
+import { User } from 'firebase/auth';
+import {
+  CheckCircle2, AlertTriangle, Upload, ChevronRight,
   MapPin, Settings, DollarSign, Users, Sprout, BarChart3, HelpCircle
 } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../translations';
+import { OperatorAssignment, getOperatorAssignments } from '../services/authService';
+
+const operatorChecklistItems = [
+  { key: 'battery', label: 'Drone battery level checked' },
+  { key: 'camera', label: 'RGB optical camera lens cleared and balanced' },
+  { key: 'gps', label: 'GPS satellite lock confirmed' },
+  { key: 'weather', label: 'Local wind and visibility checked' },
+  { key: 'permission', label: 'Farmer field boundary permission confirmed' },
+] as const;
 
 interface OtherDashboardsProps {
   currentLanguage: Language;
   currentTheme: 'light' | 'dark';
-  currentRole: 'operator' | 'manager' | 'admin';
+  currentRole: 'drone_pilot' | 'outlet_manager' | 'admin';
+  identity?: User;
+  userName?: string;
 }
 
 export default function OtherDashboards({
   currentLanguage,
   currentTheme,
-  currentRole
+  currentRole,
+  identity,
+  userName,
 }: OtherDashboardsProps) {
   const t = translations[currentLanguage];
 
@@ -33,25 +47,48 @@ export default function OtherDashboards({
     permission: true
   });
 
-  const [operatorFlightStarted, setOperatorFlightStarted] = useState(false);
+  const [assignments, setAssignments] = useState<OperatorAssignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(currentRole === 'drone_pilot');
+  const [assignmentsError, setAssignmentsError] = useState('');
 
   // Manager Price sliders
   const [managerBasePrice, setManagerBasePrice] = useState(100);
   const [managerAcreRate, setManagerAcreRate] = useState(70);
 
+  useEffect(() => {
+    if (currentRole !== 'drone_pilot' || !identity) {
+      setAssignmentsLoading(false);
+      return undefined;
+    }
+    let active = true;
+    setAssignmentsLoading(true);
+    setAssignmentsError('');
+    void getOperatorAssignments(identity)
+      .then((result) => {
+        if (active) setAssignments(result.assignments);
+      })
+      .catch((error: unknown) => {
+        if (active) setAssignmentsError(error instanceof Error ? error.message : 'Could not load assignments.');
+      })
+      .finally(() => {
+        if (active) setAssignmentsLoading(false);
+      });
+    return () => { active = false; };
+  }, [currentRole, identity]);
+
   return (
     <div className="space-y-6">
       
       {/* -------------------- DRONE OPERATOR PORTAL -------------------- */}
-      {currentRole === 'operator' && (
+      {currentRole === 'drone_pilot' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-gray-900 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
             <div>
               <h2 className="font-display font-bold text-lg text-emerald-950 dark:text-white">{t.operator_dashboard}</h2>
-              <p className="text-xs text-gray-500">Pilot Profile: Sanjay Ghadge • Certificate ID: IN-2026-DGCA-410</p>
+              <p className="text-xs text-gray-500">Pilot Profile: {userName || identity?.displayName || 'Verified drone pilot'}</p>
             </div>
-            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold font-mono">
-              GPS LOCK: OK
+            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold font-mono">
+              PILOT ACCESS APPROVED
             </span>
           </div>
 
@@ -62,17 +99,11 @@ export default function OtherDashboards({
               <p className="text-xs text-gray-500">DGCA regulations require checking all hardware safety switches before take-off.</p>
 
               <div className="space-y-2.5 text-xs">
-                {[
-                  { key: 'battery', label: 'Drone Battery Level over 85% (Optimal cells)' },
-                  { key: 'camera', label: 'RGB optical camera lens cleared and balanced' },
-                  { key: 'gps', label: 'Minimum 12 GPS satellite nodes locked' },
-                  { key: 'weather', label: 'Local wind speed under 15 km/h, clear visibility' },
-                  { key: 'permission', label: 'Farmer field boundary permission signed on grid' }
-                ].map((chk) => (
+                {operatorChecklistItems.map((chk) => (
                   <label key={chk.key} className="flex items-center gap-3 p-3 rounded-xl border bg-gray-50/50 dark:bg-gray-850 cursor-pointer">
                     <input 
                       type="checkbox" 
-                      checked={(operatorChecklist as any)[chk.key]} 
+                      checked={operatorChecklist[chk.key]}
                       onChange={(e) => setOperatorChecklist({ ...operatorChecklist, [chk.key]: e.target.checked })}
                       className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                     />
@@ -81,57 +112,38 @@ export default function OtherDashboards({
                 ))}
               </div>
 
-              <div className="pt-3 border-t">
-                {operatorFlightStarted ? (
-                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center text-xs text-emerald-800 dark:text-emerald-400 font-bold animate-pulse">
-                    🚀 Flight currently active over Patil Onion field. Mapping telemetry active...
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setOperatorFlightStarted(true)}
-                    disabled={!Object.values(operatorChecklist).every(v => v)}
-                    className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-md disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                  >
-                    <Play className="w-4 h-4 fill-white" />
-                    <span>Initiate Flight Path Scan</span>
-                  </button>
-                )}
+              <div className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                Flight controls and live telemetry are not connected. This checklist is a preview only.
               </div>
             </div>
 
             {/* Operator task cards */}
             <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
               <h3 className="font-display font-bold text-sm text-gray-900 dark:text-white">Assigned Visits Today</h3>
-              
-              <div className="space-y-3 text-xs">
-                <div className="p-4 rounded-2xl border bg-emerald-50/20 border-emerald-100/50 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="font-mono text-[9px] text-emerald-700 font-bold block uppercase tracking-wider">ACTIVE VISIT</span>
-                      <h4 className="font-bold text-sm text-gray-900 dark:text-white">Ramesh Patil</h4>
-                      <p className="text-gray-500 text-[10px]">Pimpalgaon Village • Onion Crop (4.5 Acres)</p>
-                    </div>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-bold">In-Progress</span>
-                  </div>
-
-                  <div className="text-[11px] bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-dashed text-gray-600">
-                    <p className="font-bold text-gray-800">Assigned flight slot: Morning</p>
-                    <p className="mt-1">Tasks: Standard RGB scan, trigger Ground check if visual chlorosis patterns match.</p>
-                  </div>
+              {assignmentsError ? (
+                <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{assignmentsError}</p>
+              ) : assignmentsLoading ? (
+                <p role="status" className="text-xs text-gray-500">Loading your assignments…</p>
+              ) : assignments.length === 0 ? (
+                <p className="rounded-xl bg-gray-50 p-4 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">No operations are currently assigned to this account.</p>
+              ) : (
+                <div className="space-y-3">
+                  {assignments.map((assignment) => (
+                    <article key={assignment.id} className="rounded-xl border border-gray-200 p-4 text-xs dark:border-gray-700">
+                      <h4 className="font-bold">{assignment.farmName}</h4>
+                      <p className="mt-1 text-gray-500">{assignment.farmerName} · {assignment.village} · {assignment.crop}</p>
+                      <p className="mt-2">Scheduled: {assignment.scheduledAt} · {assignment.status}</p>
+                    </article>
+                  ))}
                 </div>
-
-                <div className="p-4 rounded-2xl border bg-gray-50 opacity-60 space-y-2">
-                  <h4 className="font-bold text-gray-500">Kamlesh Patel (Dakor Village)</h4>
-                  <p className="text-[11px] text-gray-400">Scheduled: 14th July • Cotton crop (6.0 Acres)</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* -------------------- OUTLET MANAGER PORTAL -------------------- */}
-      {currentRole === 'manager' && (
+      {currentRole === 'outlet_manager' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-gray-900 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
             <div>

@@ -8,7 +8,7 @@ import {
   Menu, X, Globe, User, Bell, ChevronDown, Radio, 
   Sun, Moon, Type, Shield, LayoutDashboard, Map, 
   CalendarClock, BookOpen, CloudSun, AlertTriangle, 
-  PhoneCall, FileText, Wallet, Laptop, Settings, HelpCircle
+  PhoneCall, FileText, Wallet, Laptop, HelpCircle
 } from 'lucide-react';
 import { Language, UserRole } from '../types';
 import { translations } from '../translations';
@@ -17,7 +17,7 @@ interface NavigationProps {
   currentLanguage: Language;
   onLanguageChange: (lang: Language) => void;
   currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
+  onLogout: () => void;
   currentTheme: 'light' | 'dark';
   onThemeToggle: () => void;
   isLargeText: boolean;
@@ -37,7 +37,7 @@ export default function Navigation({
   currentLanguage,
   onLanguageChange,
   currentRole,
-  onRoleChange,
+  onLogout,
   currentTheme,
   onThemeToggle,
   isLargeText,
@@ -54,10 +54,16 @@ export default function Navigation({
 }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const t = translations[currentLanguage];
+  const roleLabel = currentRole === 'drone_pilot'
+    ? 'Drone Pilot'
+    : currentRole === 'outlet_manager'
+      ? 'Outlet Manager'
+      : currentRole === 'admin'
+        ? 'Administrator'
+        : 'Farmer';
 
   const languagesList: { code: Language; name: string; native: string }[] = [
     { code: 'en', name: 'English', native: 'English' },
@@ -69,14 +75,6 @@ export default function Navigation({
     { code: 'te', name: 'Telugu', native: 'తెలుగు' },
     { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
     { code: 'bn', name: 'Bengali', native: 'বাংলা' }
-  ];
-
-  const rolesList: { code: UserRole; label: string }[] = [
-    { code: 'guest', label: 'Guest User' },
-    { code: 'farmer', label: 'Farmer (Patil)' },
-    { code: 'operator', label: 'Drone Operator' },
-    { code: 'manager', label: 'Outlet Manager' },
-    { code: 'admin', label: 'Platform Admin' }
   ];
 
   // Helper to get active view class
@@ -122,7 +120,7 @@ export default function Navigation({
             <div className="hidden lg:flex items-center gap-6 px-4 py-1.5 rounded-full border border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20">
               <div className="text-xs">
                 <span className="text-gray-500 dark:text-gray-400">Role: </span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400 capitalize">{currentRole}</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">{roleLabel}</span>
               </div>
               <div className="text-xs h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
               <div className="text-xs">
@@ -199,7 +197,6 @@ export default function Navigation({
               <button 
                 onClick={() => {
                   setIsLangDropdownOpen(!isLangDropdownOpen);
-                  setIsRoleDropdownOpen(false);
                   setIsProfileDropdownOpen(false);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -250,52 +247,11 @@ export default function Navigation({
               </button>
             )}
 
-            {/* Role Switcher Dropdown beside Account */}
-            <div className="relative">
-              <button 
-                onClick={() => {
-                  setIsRoleDropdownOpen(!isRoleDropdownOpen);
-                  setIsProfileDropdownOpen(false);
-                  setIsLangDropdownOpen(false);
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300"
-                id="role-selector-btn"
-              >
-                <Settings className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="capitalize hidden md:inline">{currentRole}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              
-              {isRoleDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl z-50 py-1 grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700 animate-in fade-in slide-in-from-top-2 duration-100">
-                  <div className="px-3 py-1.5 text-[10px] font-mono text-gray-400 font-bold uppercase">Switch Role</div>
-                  {rolesList.map((r) => (
-                    <button
-                      key={r.code}
-                      onClick={() => {
-                        onRoleChange(r.code);
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className={`flex items-center justify-between px-4 py-2.5 text-left text-xs transition-colors ${
-                        currentRole === r.code 
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold' 
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
-                      id={`role-select-${r.code}`}
-                    >
-                      <span>{r.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Profile Drawer Dropdown */}
             <div className="relative">
               <button 
                 onClick={() => {
                   setIsProfileDropdownOpen(!isProfileDropdownOpen);
-                  setIsRoleDropdownOpen(false);
                   setIsLangDropdownOpen(false);
                 }}
                 className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center justify-center overflow-hidden cursor-pointer"
@@ -313,20 +269,20 @@ export default function Navigation({
                   {currentRole === 'guest' ? (
                     <button
                       onClick={() => {
-                        onViewChange('register');
+                        onViewChange('login');
                         setIsProfileDropdownOpen(false);
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold"
                       id="profile-register-btn"
                     >
                       <User className="w-3.5 h-3.5" />
-                      <span>{t.register_farmer}</span>
+                      <span>Sign in / Create account</span>
                     </button>
                   ) : (
                     <>
                       <button
                         onClick={() => {
-                          onViewChange('dashboard');
+                          onViewChange(currentRole === 'drone_pilot' ? 'operator-dash' : currentRole === 'outlet_manager' ? 'manager-dash' : currentRole === 'admin' ? 'admin-dash' : 'dashboard');
                           setIsProfileDropdownOpen(false);
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -337,7 +293,7 @@ export default function Navigation({
                       </button>
                       <button
                         onClick={() => {
-                          onRoleChange('guest');
+                          onLogout();
                           onViewChange('home');
                           setIsProfileDropdownOpen(false);
                         }}
@@ -345,7 +301,7 @@ export default function Navigation({
                         id="profile-logout-btn"
                       >
                         <X className="w-3.5 h-3.5" />
-                        <span>Logout / Exit Demo</span>
+                        <span>Sign out</span>
                       </button>
                     </>
                   )}
@@ -369,7 +325,7 @@ export default function Navigation({
       {networkStatus === 'offline' && (
         <div className="bg-red-600 text-white text-xs py-1.5 px-4 text-center font-bold flex items-center justify-center gap-2 animate-pulse">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>OFFLINE MODE ACTIVE: Forms will save locally and sync when connection returns.</span>
+          <span>OFFLINE MODE: Sign-in and protected services require an internet connection.</span>
         </div>
       )}
 
@@ -389,33 +345,16 @@ export default function Navigation({
 
               {/* Sidebar items inside Mobile */}
               <div className="flex flex-col gap-1.5">
-                {/* Mobile Role Switcher Section */}
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-gray-800 mb-2">
-                  <p className="text-[10px] font-mono font-bold text-gray-400 uppercase mb-2">Test Roles / Accounts</p>
-                  <div className="grid grid-cols-2 gap-1">
-                    {rolesList.map((r) => (
-                      <button
-                        key={r.code}
-                        onClick={() => {
-                          onRoleChange(r.code);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase transition-all ${
-                          currentRole === r.code
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                        }`}
-                      >
-                        {r.code}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <button onClick={() => { onViewChange('home'); setIsMobileMenuOpen(false); }} className={getNavClass('home')} id="mob-nav-home">
                   <Laptop className="w-5 h-5" />
                   <span>{t.home}</span>
                 </button>
+                {currentRole === 'guest' && (
+                  <button onClick={() => { onViewChange('login'); setIsMobileMenuOpen(false); }} className={getNavClass('login')}>
+                    <User className="w-5 h-5" />
+                    <span>Sign in / Create account</span>
+                  </button>
+                )}
                 
                 {currentRole === 'farmer' && (
                   <>
@@ -454,14 +393,14 @@ export default function Navigation({
                   </>
                 )}
 
-                {currentRole === 'operator' && (
+                {currentRole === 'drone_pilot' && (
                   <button onClick={() => { onViewChange('operator-dash'); setIsMobileMenuOpen(false); }} className={getNavClass('operator-dash')} id="mob-nav-operator">
                     <LayoutDashboard className="w-5 h-5" />
                     <span>{t.operator_dashboard}</span>
                   </button>
                 )}
 
-                {currentRole === 'manager' && (
+                {currentRole === 'outlet_manager' && (
                   <button onClick={() => { onViewChange('manager-dash'); setIsMobileMenuOpen(false); }} className={getNavClass('manager-dash')} id="mob-nav-manager">
                     <LayoutDashboard className="w-5 h-5" />
                     <span>{t.manager_dashboard}</span>

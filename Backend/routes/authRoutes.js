@@ -1,211 +1,207 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const { getFirebaseAuth } = require("../services/firebaseAdmin");
 const pool = require("../config/db");
+const { createAuthenticationMiddleware, requireRole } = require("../middleware/auth");
+
 const router = express.Router();
+const authenticate = createAuthenticationMiddleware();
 
-/*
-POST /api/auth/register
-Registers a new farmer.
-*/
-router.post("/register", async (req, res) => {
+router.get("/me", authenticate, (req, res) => {
+  res.json({ user: toPublicUser(req.user) });
+});
+
+router.patch("/profile", authenticate, async (req, res, next) => {
+  const { fullName, village } = req.body || {};
+  if (
+    typeof fullName !== "string" ||
+    fullName.trim().length < 2 ||
+    fullName.trim().length > 120 ||
+    typeof village !== "string" ||
+    village.trim().length > 120
+  ) {
+    return res.status(400).json({ message: "A valid name and village are required." });
+  }
+
   try {
-    const {
-      fullName,
-      mobileNumber,
-      email,
-      password,
-      preferredLanguage,
-      state,
-      district,
-      village,
-    } = req.body;
-
-    // Basic validation
-    if (!fullName || !mobileNumber || !password) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Full name, mobile number and password are required.",
-      });
-    }
-
-    if (password.length < 4) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must contain at least 4 characters.",
-      });
-    }
-
-    // Check whether the mobile number already exists
-    const existingFarmer = await pool.query(
-      `
-      SELECT id
-      FROM farmers
-      WHERE mobile_number = $1
-         OR ($2::VARCHAR IS NOT NULL AND email = $2)
-      `,
-      [mobileNumber, email || null]
-    );
-
-    if (existingFarmer.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "A farmer with this mobile number or email already exists.",
-      });
-    }
-
-    // Never store the original password
-    const passwordHash = await bcrypt.hash(password, 10);
-
     const result = await pool.query(
-      `
-      INSERT INTO farmers (
-        full_name,
-        mobile_number,
-        email,
-        password_hash,
-        preferred_language,
-        state,
-        district,
-        village,
-        role
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'farmer')
-      RETURNING
-        id,
-        full_name,
-        mobile_number,
-        email,
-        preferred_language,
-        state,
-        district,
-        village,
-        role,
-        created_at
-      `,
-      [
-        fullName.trim(),
-        mobileNumber.trim(),
-        email?.trim() || null,
-        passwordHash,
-        preferredLanguage || "English",
-        state || null,
-        district || null,
-        village || null,
-      ]
+      `UPDATE app_users SET full_name = $1, village = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, firebase_uid, email, full_name, mobile_number, village,
+                 role, account_status`,
+      [fullName.trim(), village.trim(), req.user.id]
     );
-
-    return res.status(201).json({
-      success: true,
-      message: "Farmer registered successfully.",
-      farmer: result.rows[0],
-    });
+    return res.json({ user: toPublicUser(result.rows[0]) });
   } catch (error) {
-    console.error("Farmer registration error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to register farmer.",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : undefined,
-    });
+    return next(error);
   }
 });
-/*
-POST /api/auth/login
-Logs in a registered farmer.
-*/
-router.post("/login", async (req, res) => {
+
+router.post("/role-requests/drone-pilot", authenticate, async (req, res, next) => {
+  if (req.user.role === "DRONE_PILOT") {
+    return res.status(200).json({ status: "APPROVED" });
+  }
+
   try {
-    const { mobileNumber, password } = req.body;
+    await pool.query(
+      `INSERT INTO role_requests (user_id, requested_role)
+       VALUES ($1, 'DRONE_PILOT')
+       ON CONFLICT (user_id, requested_role) DO UPDATE SET
+         status = 'PENDING',
+         reviewed_by = NULL,
+         reviewed_at = NULL,
+         created_at = NOW()
+       WHERE role_requests.status IN ('REJECTED', 'APPROVED')`,
+      [req.user.id]
+    );
+    return res.status(202).json({ status: "PENDING" });
+  } catch (error) {
+    return next(error);
+  }
+});
 
-    if (!mobileNumber || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Mobile number and password are required.",
-      });
-    }
+router.post("/logout", authenticate, async (req, res, next) => {
+  try {
+    await getFirebaseAuth().revokeRefreshTokens(req.user.firebase_uid);
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
 
+router.get("/admin/users", authenticate, requireRole("ADMIN"), async (req, res, next) => {
+  try {
     const result = await pool.query(
-      `
-      SELECT
-        id,
-        full_name,
-        mobile_number,
-        email,
-        password_hash,
-        preferred_language,
-        state,
-        district,
-        village,
-        role
-      FROM farmers
-      WHERE mobile_number = $1
-      `,
-      [mobileNumber.trim()]
+      `SELECT id::text AS id, email, full_name, mobile_number, village, role, account_status, created_at
+       FROM app_users ORDER BY created_at DESC LIMIT 200`
     );
+    return res.json({ users: result.rows });
+  } catch (error) {
+    return next(error);
+  }
+});
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid mobile number or password.",
-      });
+router.get("/admin/role-requests", authenticate, requireRole("ADMIN"), async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.id::text AS id, r.requested_role, r.status, r.created_at,
+              u.id::text AS user_id, u.full_name, u.email, u.mobile_number, u.village
+       FROM role_requests r
+       JOIN app_users u ON u.id = r.user_id
+       WHERE r.status = 'PENDING'
+       ORDER BY r.created_at ASC
+       LIMIT 200`
+    );
+    return res.json({ requests: result.rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch(
+  "/admin/role-requests/:requestId",
+  authenticate,
+  requireRole("ADMIN"),
+  async (req, res, next) => {
+    const requestId = req.params.requestId;
+    const { status } = req.body || {};
+    if (!/^[1-9]\d{0,18}$/.test(requestId) ||
+        !["APPROVED", "REJECTED"].includes(status)) {
+      return res.status(400).json({ message: "A valid request ID and decision are required." });
     }
 
-    const farmer = result.rows[0];
-
-    const passwordMatches = await bcrypt.compare(
-      password,
-      farmer.password_hash
-    );
-
-    if (!passwordMatches) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid mobile number or password.",
-      });
-    }
-
-    const token = jwt.sign(
-      {
-        farmerId: farmer.id,
-        role: farmer.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d",
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const request = await client.query(
+        `SELECT id, user_id, requested_role FROM role_requests
+         WHERE id = $1 AND status = 'PENDING' FOR UPDATE`,
+        [requestId]
+      );
+      if (!request.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Pending role request was not found." });
       }
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      token,
-      farmer: {
-        id: farmer.id,
-        fullName: farmer.full_name,
-        mobileNumber: farmer.mobile_number,
-        email: farmer.email,
-        preferredLanguage: farmer.preferred_language,
-        state: farmer.state,
-        district: farmer.district,
-        village: farmer.village,
-        role: farmer.role,
-      },
-    });
-  } catch (error) {
-    console.error("Farmer login error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to log in.",
-      error: error.message,
-    });
+      const roleRequest = request.rows[0];
+      await client.query(
+        `UPDATE role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+         WHERE id = $3`,
+        [status, req.user.id, requestId]
+      );
+      if (status === "APPROVED") {
+        await client.query(
+          `UPDATE app_users SET role = $1, updated_at = NOW() WHERE id = $2`,
+          [roleRequest.requested_role, roleRequest.user_id]
+        );
+      }
+      await client.query("COMMIT");
+      return res.json({ success: true, status });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return next(error);
+    } finally {
+      client.release();
+    }
   }
-});
+);
+
+router.patch(
+  "/admin/users/:userId/role",
+  authenticate,
+  requireRole("ADMIN"),
+  async (req, res, next) => {
+    const allowedRoles = ["FARMER", "DRONE_PILOT", "OUTLET_MANAGER", "ADMIN"];
+    const { role } = req.body || {};
+    const userId = req.params.userId;
+    if (!/^[1-9]\d{0,18}$/.test(userId) || !allowedRoles.includes(role)) {
+      return res.status(400).json({ message: "Invalid application role." });
+    }
+    if (userId === req.user.id && role !== "ADMIN") {
+      return res.status(409).json({ message: "Administrators cannot remove their own administrator role." });
+    }
+
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const updated = await client.query(
+          `UPDATE app_users SET role = $1, updated_at = NOW()
+           WHERE id = $2
+           RETURNING id`,
+          [role, userId]
+        );
+        if (!updated.rowCount) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ message: "User was not found." });
+        }
+        await client.query(
+          `UPDATE role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+           WHERE user_id = $3 AND requested_role = 'DRONE_PILOT' AND status = 'PENDING'`,
+          [role === "DRONE_PILOT" ? "APPROVED" : "REJECTED", req.user.id, userId]
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+function toPublicUser(user) {
+  return {
+    id: String(user.id),
+    email: user.email,
+    fullName: user.full_name,
+    mobileNumber: user.mobile_number,
+    village: user.village,
+    role: user.role,
+    accountStatus: user.account_status,
+  };
+}
 
 module.exports = router;

@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { 
-  Shield, CheckCircle2, Play, Users, MapPin, 
+  Shield, CheckCircle2, Play, Users, MapPin, Lock,
   ArrowRight, Heart, Sparkles, HelpCircle, AlertTriangle,
   Zap, Cloud, Info
 } from 'lucide-react';
@@ -15,14 +15,12 @@ import { translations } from '../translations';
 interface LandingPageProps {
   currentLanguage: Language;
   onNavigate: (view: string) => void;
-  onRoleSet: (role: 'farmer' | 'guest') => void;
   currentTheme: 'light' | 'dark';
 }
 
 export default function LandingPage({
   currentLanguage,
   onNavigate,
-  onRoleSet,
   currentTheme
 }: LandingPageProps) {
   const [showDemoModal, setShowDemoModal] = useState(false);
@@ -70,10 +68,17 @@ export default function LandingPage({
 
             {/* Quick action buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => onNavigate('login')}
+                className="px-5 py-3.5 rounded-xl bg-white dark:bg-gray-800 border border-emerald-700/30 dark:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-gray-700 text-emerald-900 dark:text-emerald-200 font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+                id="hero-login-btn"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Farmer Login</span>
+              </button>
               <button 
                 onClick={() => {
-                  onRoleSet('farmer');
-                  onNavigate('register');
+                  onNavigate('login');
                 }}
                 className="px-6 py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all hover:translate-y-[-1px]"
                 id="hero-register-btn"
@@ -84,7 +89,6 @@ export default function LandingPage({
               
               <button 
                 onClick={() => {
-                  onRoleSet('farmer');
                   onNavigate('booking-flow');
                 }}
                 className="px-6 py-3.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-emerald-800 dark:text-emerald-300 font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
@@ -246,7 +250,7 @@ export default function LandingPage({
             { step: '04', title: 'Take swift action', desc: 'Get simple crop advisory instructions on WhatsApp, SMS or the App.' }
           ].map((item, idx) => (
             <div key={idx} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-3xl relative space-y-4 shadow-sm hover:shadow-md transition-shadow">
-              <span className="text-4xl font-black text-emerald-100 dark:text-emerald-950 font-display block select-none">
+              <span className="text-4xl font-black text-emerald-700/70 dark:text-emerald-300/70 font-display block select-none">
                 {item.step}
               </span>
               <h3 className="font-display font-bold text-base text-gray-900 dark:text-gray-100">{item.title}</h3>
@@ -310,7 +314,7 @@ export default function LandingPage({
                     className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center text-[9px] font-bold border transition-all ${
                       selectedVillageNode === 'shivar' 
                         ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-950 dark:text-amber-200 scale-110 shadow' 
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100'
                     }`}
                   >
                     Shivar
@@ -320,7 +324,7 @@ export default function LandingPage({
                     className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center text-[9px] font-bold border transition-all ${
                       selectedVillageNode === 'pimpalgaon' 
                         ? 'bg-emerald-100 border-emerald-400 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 scale-110 shadow' 
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100'
                     }`}
                   >
                     Pimpal
@@ -333,7 +337,7 @@ export default function LandingPage({
                     className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center text-[9px] font-bold border transition-all ${
                       selectedVillageNode === 'ozar' 
                         ? 'bg-emerald-100 border-emerald-400 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 scale-110 shadow' 
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100'
                     }`}
                   >
                     Ozar
@@ -343,7 +347,7 @@ export default function LandingPage({
                     className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center text-[9px] font-bold border transition-all ${
                       selectedVillageNode === 'dindori' 
                         ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-950 dark:text-amber-200 scale-110 shadow' 
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100'
                     }`}
                   >
                     Dindori
@@ -517,8 +521,7 @@ export default function LandingPage({
               <button 
                 onClick={() => {
                   setShowDemoModal(false);
-                  onRoleSet('farmer');
-                  onNavigate('register');
+                  onNavigate('login');
                 }}
                 className="px-4 py-2 text-xs rounded-xl bg-emerald-700 text-white font-bold"
               >

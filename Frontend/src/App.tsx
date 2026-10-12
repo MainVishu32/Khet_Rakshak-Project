@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User as FirebaseUser } from 'firebase/auth';
 import { 
   Menu, X, Globe, User, Bell, ChevronDown, Radio, 
   Sun, Moon, Type, Shield, LayoutDashboard, Map, 
@@ -19,7 +20,10 @@ import { translations } from './translations';
 // Custom Core Components
 import Navigation from './components/Navigation';
 import LandingPage from './components/LandingPage';
-import OnboardingFlow from './components/OnboardingFlow';
+import AuthPage from './components/AuthPage';
+import ProfileSetup from './components/ProfileSetup';
+import FarmSetup, { EmptyFarmState } from './components/FarmSetup';
+import AdminAccessManagement from './components/AdminAccessManagement';
 import FarmerDashboard from './components/FarmerDashboard';
 import BookingFlow from './components/BookingFlow';
 import BookingManagement from './components/BookingManagement';
@@ -29,44 +33,72 @@ import CropAdvisory from './components/CropAdvisory';
 import ExpertConsultation from './components/ExpertConsultation';
 import OtherDashboards from './components/OtherDashboards';
 import WalletPayments from './components/WalletPayments';
+import {
+  AppRole,
+  AppUser,
+  getApplicationUser,
+  logout,
+  observeAuth,
+  requestDronePilotAccess,
+} from './services/authService';
+import { firebaseAuth } from './services/firebase';
+
+function toFrontendRole(role: AppRole): UserRole {
+  switch (role) {
+    case 'DRONE_PILOT': return 'drone_pilot';
+    case 'OUTLET_MANAGER': return 'outlet_manager';
+    case 'ADMIN': return 'admin';
+    case 'FARMER': return 'farmer';
+  }
+}
+
+function destinationForRole(role: AppRole) {
+  if (role === 'DRONE_PILOT') return 'operator-dash';
+  if (role === 'OUTLET_MANAGER') return 'manager-dash';
+  if (role === 'ADMIN') return 'admin-dash';
+  return 'dashboard';
+}
+
+function hasCompleteProfile(user: AppUser) {
+  return Boolean(user.fullName.trim() && user.mobileNumber && user.village.trim());
+}
+
+function isViewAllowed(view: string, role: AppRole) {
+  if (view === 'home' || view === 'login' || view === 'profile-setup') return true;
+  if (role === 'FARMER') {
+    return [
+      'dashboard', 'farms', 'register', 'booking-flow', 'bookings-list',
+      'drone-analysis', 'sensors', 'advisory', 'expert', 'expenses',
+    ].includes(view);
+  }
+  if (role === 'DRONE_PILOT') return view === 'operator-dash';
+  if (role === 'OUTLET_MANAGER') return view === 'manager-dash';
+  return role === 'ADMIN' && view === 'admin-dash';
+}
 
 export default function App() {
   // --- Core Layout & Language States ---
   const [currentLanguage, setCurrentLanguage] = useState<Language>('en');
   const [currentRole, setCurrentRole] = useState<UserRole>('guest');
+  const [identity, setIdentity] = useState<FirebaseUser | null>(null);
+  const [authUser, setAuthUser] = useState<AppUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authNotice, setAuthNotice] = useState('');
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const [isLargeText, setIsLargeText] = useState(false);
   const [networkStatus, setNetworkStatus] = useState<'online' | 'weak' | 'offline'>('online');
   const [currentView, setCurrentView] = useState<string>('home');
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
+  const intendedDestination = useRef<string | null>(null);
+  const pilotApplicationPendingSetup = useRef(false);
 
-  // --- User Profiles state ---
-  const [userName, setUserName] = useState('Ramesh Patil');
-  const [userVillage, setUserVillage] = useState('Pimpalgaon, Nashik');
+  const userName = authUser?.fullName || identity?.displayName || '';
+  const userVillage = authUser?.village || '';
 
   // --- Dynamic Agriculture States ---
-  const [registeredFarms, setRegisteredFarms] = useState<Farm[]>([
-    {
-      id: 'farm-1',
-      name: 'Pimpalgaon Onion plot',
-      location: 'Pimpalgaon, Nashik',
-      area: 4.5,
-      areaUnit: 'acre',
-      crop: 'Onion',
-      sowingDate: '2026-06-12',
-      irrigationType: 'drip',
-      latestHealthScore: 74,
-      lastScanDate: '08 July 2026',
-      nextScanDate: '12 July 2026',
-      activeAlertsCount: 2,
-      boundary: [
-        { lat: 20.0821, lng: 73.9841 },
-        { lat: 20.0828, lng: 73.9849 },
-        { lat: 20.0822, lng: 73.9855 },
-        { lat: 20.0815, lng: 73.9845 }
-      ]
-    }
-  ]);
-  const [activeFarm, setActiveFarm] = useState<Farm>(registeredFarms[0]);
+  const [registeredFarms, setRegisteredFarms] = useState<Farm[]>([]);
+  const [activeFarm, setActiveFarm] = useState<Farm | null>(null);
 
   // Sync activeFarm when registeredFarms changes or the selected farm is switched
   const handleSelectFarm = (farm: Farm) => {
@@ -80,53 +112,10 @@ export default function App() {
 
   // --- Live Wallet Balance ---
   // Starts at ₹850, spent when booking, top-up adds money
-  const [walletBalance, setWalletBalance] = useState(850);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // --- Bookings State Ledger ---
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: 'BK-810',
-      farmId: 'farm-1',
-      farmName: 'Pimpalgaon Onion plot',
-      crop: 'Onion',
-      serviceType: 'ai_report',
-      area: 4.5,
-      price: 415,
-      outletId: 'nashik-central',
-      dateTime: '2026-07-08 09:30 AM',
-      timeSlot: 'Morning (08:00 AM - 11:00 AM)',
-      operatorId: 'op-1',
-      operatorName: 'Sanjay Ghadge',
-      status: 'completed',
-      paymentMethod: 'wallet',
-      paymentStatus: 'paid',
-      travelFee: 100,
-      areaCharge: 315,
-      sensorFee: 0,
-      discount: 0
-    },
-    {
-      id: 'BK-120',
-      farmId: 'farm-1',
-      farmName: 'Pimpalgaon Onion plot',
-      crop: 'Onion',
-      serviceType: 'sensor_confirm',
-      area: 4.5,
-      price: 320,
-      outletId: 'nashik-central',
-      dateTime: '2026-07-12 10:00 AM',
-      timeSlot: 'Morning (08:00 AM - 11:00 AM)',
-      operatorId: 'op-1',
-      operatorName: 'Sanjay Ghadge',
-      status: 'assigned',
-      paymentMethod: 'upi',
-      paymentStatus: 'paid',
-      travelFee: 100,
-      areaCharge: 120,
-      sensorFee: 100,
-      discount: 0
-    }
-  ]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
   const handleBookingConfirm = (newBooking: Booking) => {
     // Append to live ledger
@@ -221,37 +210,133 @@ export default function App() {
     }
   }, [currentTheme]);
 
-  // --- Map Role Switches to View Routes ---
-  const handleRoleChange = (role: UserRole) => {
-    setCurrentRole(role);
-    if (role === 'farmer') {
-      setCurrentView('dashboard');
-    } else if (role === 'operator') {
-      setCurrentView('operator-dash');
-    } else if (role === 'manager') {
-      setCurrentView('manager-dash');
-    } else if (role === 'admin') {
-      setCurrentView('admin-dash');
-    } else {
-      setCurrentView('home');
+  useEffect(() => {
+    if (!firebaseAuth) {
+      setAuthLoading(false);
+      return;
     }
+    return observeAuth((firebaseUser) => {
+      setIdentity(firebaseUser);
+      if (!firebaseUser) {
+        setAuthUser(null);
+        setCurrentRole('guest');
+        if (currentViewRef.current !== 'home' && currentViewRef.current !== 'login') {
+          setCurrentView('home');
+        }
+        setAuthLoading(false);
+        return;
+      }
+      setAuthLoading(true);
+      void getApplicationUser(firebaseUser)
+        .then((user) => {
+          setAuthUser(user);
+          setCurrentRole(toFrontendRole(user.role));
+          if (!user.fullName || !user.mobileNumber || !user.village) {
+            setCurrentView('profile-setup');
+          } else if (currentViewRef.current === 'home' || currentViewRef.current === 'login') {
+            setCurrentView(destinationForRole(user.role));
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Unable to restore authenticated application session:', error);
+          setAuthUser(null);
+          setAuthNotice('Unable to verify your account with the Khet Rakshak server. Please try again.');
+        })
+        .finally(() => setAuthLoading(false));
+    });
+  }, []);
+
+  const handleAuthenticated = async (firebaseUser: FirebaseUser, requestedRole: AppRole) => {
+    setAuthNotice('');
+    const user = await getApplicationUser(firebaseUser);
+
+    if (requestedRole === 'ADMIN' && user.role !== 'ADMIN') {
+      setIdentity(firebaseUser);
+      setAuthUser(user);
+      setCurrentRole(toFrontendRole(user.role));
+      setCurrentView('forbidden');
+      throw new Error('This account is not provisioned as an administrator. Contact the platform administrator.');
+    }
+    if (requestedRole === 'DRONE_PILOT' && user.role === 'FARMER') {
+      setIdentity(firebaseUser);
+      setAuthUser(user);
+      setCurrentRole('farmer');
+      if (!hasCompleteProfile(user)) {
+        pilotApplicationPendingSetup.current = true;
+        setCurrentView('profile-setup');
+        return;
+      }
+      const request = await requestDronePilotAccess(firebaseUser);
+      setCurrentView(request.status === 'APPROVED' ? 'operator-dash' : 'pilot-pending');
+      return;
+    }
+
+    setIdentity(firebaseUser);
+    setAuthUser(user);
+    setCurrentRole(toFrontendRole(user.role));
+    if (!hasCompleteProfile(user)) {
+      setCurrentView('profile-setup');
+      return;
+    }
+
+    const intended = intendedDestination.current;
+    intendedDestination.current = null;
+    setCurrentView(intended && isViewAllowed(intended, user.role) ? intended : destinationForRole(user.role));
   };
 
-  const handleLoginSuccess = (user: { name: string; role: UserRole; village: string }) => {
-    setUserName(user.name);
-    setCurrentRole(user.role);
-    setUserVillage(user.village);
-    
-    // Auto route based on role
-    if (user.role === 'farmer') {
-      setCurrentView('dashboard');
-    } else if (user.role === 'operator') {
-      setCurrentView('operator-dash');
-    } else if (user.role === 'manager') {
-      setCurrentView('manager-dash');
-    } else if (user.role === 'admin') {
-      setCurrentView('admin-dash');
-    } else {
+  const handleProfileComplete = async (user: AppUser) => {
+    setAuthUser(user);
+    setCurrentRole(toFrontendRole(user.role));
+    if (pilotApplicationPendingSetup.current && identity) {
+      pilotApplicationPendingSetup.current = false;
+      try {
+        const request = await requestDronePilotAccess(identity);
+        setCurrentView(request.status === 'APPROVED' ? 'operator-dash' : 'pilot-pending');
+      } catch (error) {
+        setAuthNotice(error instanceof Error ? error.message : 'Could not submit the pilot access request.');
+        setCurrentView(destinationForRole(user.role));
+      }
+      return;
+    }
+    setCurrentView(destinationForRole(user.role));
+  };
+
+  const handleNavigate = (view: string) => {
+    if (view === 'login' || view === 'home') {
+      setCurrentView(view);
+      return;
+    }
+    if (view === 'register') {
+      setCurrentView(authUser ? 'register' : 'login');
+      return;
+    }
+    if (!authUser) {
+      intendedDestination.current = view;
+      setCurrentView('login');
+      return;
+    }
+    if (!isViewAllowed(view, authUser.role)) {
+      setCurrentView('forbidden');
+      return;
+    }
+    setCurrentView(view);
+  };
+
+  const handleLogout = async () => {
+    if (!identity) return;
+    try {
+      await logout(identity);
+      setAuthNotice('');
+    } catch (error) {
+      setAuthNotice(error instanceof Error
+        ? `Signed out locally, but server-side session revocation could not be confirmed: ${error.message}`
+        : 'Signed out locally, but server-side session revocation could not be confirmed.');
+    } finally {
+      setAuthUser(null);
+      setRegisteredFarms([]);
+      setActiveFarm(null);
+      setBookings([]);
+      setCurrentRole('guest');
       setCurrentView('home');
     }
   };
@@ -269,7 +354,7 @@ export default function App() {
         currentLanguage={currentLanguage}
         onLanguageChange={setCurrentLanguage}
         currentRole={currentRole}
-        onRoleChange={handleRoleChange}
+        onLogout={() => { void handleLogout(); }}
         currentTheme={currentTheme}
         onThemeToggle={() => setCurrentTheme(currentTheme === 'light' ? 'dark' : 'light')}
         isLargeText={isLargeText}
@@ -278,7 +363,7 @@ export default function App() {
         onNetworkStatusChange={setNetworkStatus}
         walletBalance={walletBalance}
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={handleNavigate}
         unreadAlertsCount={unreadCount}
         onOpenNotifications={() => {
           setIsNotificationsOpen(true);
@@ -303,36 +388,57 @@ export default function App() {
 
       {/* Main Grid View Content Router */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {authNotice && (
+          <div role="alert" className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            {authNotice}
+          </div>
+        )}
+        {authLoading && (
+          <div role="status" className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center text-sm text-gray-600 shadow dark:bg-gray-900 dark:text-gray-300">
+            Checking your secure session…
+          </div>
+        )}
+        {!authLoading && authUser && !['home', 'login', 'profile-setup'].includes(currentView) && (
+          <div role="note" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+            Prototype preview: farm, booking, sensor, and flight details shown on these screens are illustrative and are not live or persisted operational records.
+          </div>
+        )}
         
         {/* Guest / Public Home Page View */}
-        {currentView === 'home' && (
+        {!authLoading && currentView === 'home' && (
           <LandingPage
             currentLanguage={currentLanguage}
-            onNavigate={setCurrentView}
-            onRoleSet={(role) => handleRoleChange(role)}
+            onNavigate={handleNavigate}
             currentTheme={currentTheme}
           />
         )}
 
-        {/* Farmer Register & 9-Step Onboarding View */}
-        {currentView === 'register' && (
-          <OnboardingFlow
-            currentLanguage={currentLanguage}
-            onLanguageChange={setCurrentLanguage}
-            onLoginSuccess={handleLoginSuccess}
-            onAddFarm={handleAddFarm}
-            currentTheme={currentTheme}
-          />
+        {!authLoading && currentView === 'login' && (
+          <AuthPage onAuthenticated={handleAuthenticated} onBack={() => setCurrentView('home')} />
+        )}
+
+        {!authLoading && currentView === 'profile-setup' && identity && (
+          <ProfileSetup identity={identity} onComplete={handleProfileComplete} />
         )}
 
         {/* Logged-In Farmer views */}
-        {currentRole === 'farmer' && (
+        {!authLoading && currentView === 'register' && authUser?.role === 'FARMER' && (
+          <FarmSetup
+            onCancel={() => handleNavigate('farms')}
+            onSave={(farm) => {
+              handleAddFarm(farm);
+              handleNavigate('farms');
+            }}
+          />
+        )}
+
+        {!authLoading && authUser?.role === 'FARMER' && (
           <>
             {/* 1. Farmer Cockpit Dashboard */}
             {currentView === 'dashboard' && (
-              <FarmerDashboard
+              activeFarm ? <FarmerDashboard
                 currentLanguage={currentLanguage}
-                onNavigate={setCurrentView}
+                onNavigate={handleNavigate}
                 currentTheme={currentTheme}
                 isLargeText={isLargeText}
                 onSpeakText={handleSpeakText}
@@ -340,7 +446,7 @@ export default function App() {
                 registeredFarms={registeredFarms}
                 onSelectFarm={handleSelectFarm}
                 onTriggerExpertChat={handleTriggerExpertChat}
-              />
+              /> : <EmptyFarmState onAddFarm={() => handleNavigate('register')} />
             )}
 
             {/* 2. Farms selector onboarding page */}
@@ -348,14 +454,15 @@ export default function App() {
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
                   <h2 className="font-display font-bold text-lg text-emerald-950 dark:text-white">Registered Land Plots</h2>
-                  <p className="text-xs text-gray-500">View GPS grids, crop variety age, and soil sensor assignments for your land holdings.</p>
+                  <p className="text-xs text-gray-500">Farm plots are held only in this signed-in browser session; persistent farm storage is not available in the existing backend.</p>
+                  {registeredFarms.length === 0 && <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">No plots have been added in this session yet.</p>}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {registeredFarms.map((f) => (
                       <div 
                         key={f.id} 
                         className={`p-5 rounded-2xl border transition-all ${
-                          activeFarm.id === f.id 
+                          activeFarm?.id === f.id
                             ? 'bg-emerald-50/50 border-emerald-500 dark:bg-emerald-950/20' 
                             : 'bg-white dark:bg-gray-850 border-gray-100 hover:bg-gray-50'
                         }`}
@@ -384,7 +491,7 @@ export default function App() {
                   </div>
 
                   <button 
-                    onClick={() => setCurrentView('register')}
+                    onClick={() => handleNavigate('register')}
                     className="py-2.5 px-4 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1.5"
                   >
                     <span>+ Add Another Plot</span>
@@ -395,13 +502,13 @@ export default function App() {
 
             {/* 3. Multi-Step Drone Booking Flow */}
             {currentView === 'booking-flow' && (
-              <BookingFlow
+              activeFarm ? <BookingFlow
                 currentLanguage={currentLanguage}
                 registeredFarms={registeredFarms}
                 activeFarm={activeFarm}
                 onBookingConfirm={handleBookingConfirm}
-                onNavigate={setCurrentView}
-              />
+                onNavigate={handleNavigate}
+              /> : <EmptyFarmState onAddFarm={() => handleNavigate('register')} />
             )}
 
             {/* 4. Live Telemetry Tracker & Bookings Management */}
@@ -418,7 +525,7 @@ export default function App() {
             {currentView === 'drone-analysis' && (
               <DroneAnalysis
                 currentLanguage={currentLanguage}
-                onNavigate={setCurrentView}
+                onNavigate={handleNavigate}
                 onSpeakText={handleSpeakText}
               />
             )}
@@ -436,7 +543,7 @@ export default function App() {
               <CropAdvisory
                 currentLanguage={currentLanguage}
                 onSpeakText={handleSpeakText}
-                onNavigate={setCurrentView}
+                onNavigate={handleNavigate}
               />
             )}
 
@@ -459,30 +566,68 @@ export default function App() {
         )}
 
         {/* Operator Dashboard view */}
-        {currentRole === 'operator' && currentView === 'operator-dash' && (
+        {!authLoading && authUser?.role === 'DRONE_PILOT' && currentView === 'operator-dash' && (
           <OtherDashboards
             currentLanguage={currentLanguage}
             currentTheme={currentTheme}
-            currentRole="operator"
+            currentRole="drone_pilot"
+            identity={identity || undefined}
+            userName={userName}
           />
         )}
 
         {/* Manager Dashboard view */}
-        {currentRole === 'manager' && currentView === 'manager-dash' && (
+        {!authLoading && authUser?.role === 'OUTLET_MANAGER' && currentView === 'manager-dash' && (
           <OtherDashboards
             currentLanguage={currentLanguage}
             currentTheme={currentTheme}
-            currentRole="manager"
+            currentRole="outlet_manager"
           />
         )}
 
         {/* Admin Dashboard view */}
-        {currentRole === 'admin' && currentView === 'admin-dash' && (
-          <OtherDashboards
-            currentLanguage={currentLanguage}
-            currentTheme={currentTheme}
-            currentRole="admin"
-          />
+        {!authLoading && authUser?.role === 'ADMIN' && currentView === 'admin-dash' && (
+          <div className="space-y-6">
+            {identity && <AdminAccessManagement identity={identity} />}
+            <OtherDashboards
+              currentLanguage={currentLanguage}
+              currentTheme={currentTheme}
+              currentRole="admin"
+            />
+          </div>
+        )}
+
+        {!authLoading && currentView === 'pilot-pending' && (
+          <div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-8 text-center shadow dark:bg-gray-900">
+            <h2 className="font-display text-xl font-bold text-amber-800 dark:text-amber-400">Pilot access pending approval</h2>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Your account remains a farmer account until an administrator approves the drone-pilot request.</p>
+            <button
+              onClick={() => {
+                if (!identity) return;
+                void getApplicationUser(identity).then((user) => {
+                  setAuthUser(user);
+                  setCurrentRole(toFrontendRole(user.role));
+                  setCurrentView(user.role === 'DRONE_PILOT'
+                    ? hasCompleteProfile(user) ? 'operator-dash' : 'profile-setup'
+                    : 'pilot-pending');
+                }).catch((error: unknown) => {
+                  setAuthNotice(error instanceof Error ? error.message : 'Could not refresh pilot approval.');
+                });
+              }}
+              className="mt-5 rounded-xl border border-emerald-700 px-5 py-3 font-bold text-emerald-800"
+            >
+              Check approval status
+            </button>
+            <button onClick={() => handleNavigate('home')} className="mt-5 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white">Return home</button>
+          </div>
+        )}
+
+        {!authLoading && currentView === 'forbidden' && (
+          <div role="alert" className="mx-auto max-w-xl rounded-3xl border border-red-200 bg-white p-8 text-center shadow dark:bg-gray-900">
+            <h2 className="font-display text-xl font-bold text-red-700">Access denied</h2>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Your verified account does not have permission to open that section.</p>
+            <button onClick={() => handleNavigate(authUser ? destinationForRole(authUser.role) : 'home')} className="mt-5 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white">Return to your portal</button>
+          </div>
         )}
 
       </main>

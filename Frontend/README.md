@@ -1,20 +1,14 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Khet Rakshak frontend
 
-# Run and deploy your AI Studio app
+This is the existing React 19 and Vite client. For the complete Firebase, backend, PostgreSQL, role-provisioning, and deployment setup, see the repository [README](../README.md).
 
-This contains everything you need to run your app locally.
+Quick local setup:
 
-View your app in AI Studio: https://ai.studio/apps/31339b49-95c3-4171-aede-4ae8b335a020
+1. Create `Frontend/.env` from `Frontend/.env.example` if it does not already exist; verify its Firebase Web app values match your Firebase project.
+2. Configure the Firebase Web app, enabling Google and Phone sign-in and authorizing `localhost`.
+3. Set `VITE_API_URL` to the existing Express API.
+4. Run `npm install` and `npm run dev` from this folder.
 
-## Run Locally
+`npm run lint` performs the TypeScript check and `npm run build` produces the Vite production bundle. Authentication uses Firebase-managed browser-session persistence; the client does not assign application roles and all privileged API access is checked by Express.
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Vite reads `VITE_*` environment variables at startup. Restart `npm run dev` after changing `.env`. For local development, the Express API allows the Vite origins on ports 3000 and 5173 at both `localhost` and `127.0.0.1`.

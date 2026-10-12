@@ -5,7 +5,7 @@
 
 export type Language = 'en' | 'hi' | 'mr' | 'gu' | 'pa' | 'ta' | 'te' | 'kn' | 'bn';
 
-export type UserRole = 'farmer' | 'operator' | 'manager' | 'admin' | 'guest';
+export type UserRole = 'farmer' | 'drone_pilot' | 'outlet_manager' | 'admin' | 'guest';
 
 export interface Farm {
   id: string;
