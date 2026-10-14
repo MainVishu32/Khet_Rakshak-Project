@@ -18,7 +18,7 @@ The app is built with React, TypeScript, and Vite. It uses Tailwind CSS for styl
 ### Screens and role areas
 
 - **Guest:** landing page and sign-in/create-account screen.
-- **Profile setup:** collect or complete the signed-in user's name, mobile number, and village.
+- **Profile setup:** collect or complete the signed-in user's name and village.
 - **Farmer:** dashboard, farm list/setup, booking list, drone analysis, sensor dashboard, crop advisory, expert consultation, and expenses.
 - **Drone pilot:** assigned visits screen, with an empty state when no assignments are returned.
 - **Outlet manager:** placeholder screen explaining that management tools are not available yet.
@@ -30,7 +30,7 @@ The app also includes pilot-access pending and access-denied states. The visible
 
 Some screens are working interface prototypes, while other actions need connected services or data:
 
-- Sign-in UI offers Google and phone OTP flows through Firebase Authentication.
+- Sign-in uses Google through Firebase Authentication. Phone OTP sign-in and profile verification are not used.
 - The frontend requests the signed-in account and role from the configured API. The role shown in the UI does not grant permissions by itself.
 - Farm entries, bookings, wallet balance, notifications, and much of the dashboard content are held in frontend state. They are not durable records and may reset when the page reloads.
 - Drone booking currently shows an unavailable message and does not create a booking.
@@ -74,11 +74,11 @@ Vite exposes variables prefixed with `VITE_` to code running in the browser. The
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Authentication domain for the Web app. |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase project identifier. |
 | `VITE_FIREBASE_APP_ID` | Firebase Web app identifier. |
-| `VITE_API_URL` | Base URL used for frontend API requests. If omitted, the UI uses `http://localhost:5000`. |
+| `VITE_API_URL` | Backend base origin used for API requests, such as `https://your-api-host.example.com`. Do not append `/api`. In development only, omission defaults to `http://localhost:5000`; production builds require this value. |
 
-The Firebase values in `.env.example` are client configuration. Do not put Firebase Admin credentials, service-account keys, database passwords, or other server secrets in a `VITE_*` variable. Vite reads `.env` when it starts, so restart the dev server after editing the file.
+The Firebase values in `.env.example` are public client configuration placeholders. Do not put Firebase Admin credentials, service-account keys, database passwords, or other server secrets in a `VITE_*` variable. Vite reads `.env` when it starts, so restart the dev server after editing the file.
 
-Firebase sign-in requires a configured Firebase project and enabled sign-in providers. Screens that load account, pilot, or administrator data also need a compatible API at `VITE_API_URL` and an account with the required role. During local development, start the Express API from `Backend` on port 5000. A browser `Failed to fetch` message means the API could not be reached or the browser blocked it; check that the API is running and that its `FRONTEND_URL` exactly matches the frontend origin. For a production build, set `VITE_API_URL` to the deployed API origin before building; deployed builds do not fall back to a developer's `localhost`.
+Firebase sign-in requires a configured Firebase project, the Google provider enabled, and the deployed hostname listed in Firebase Authentication's authorized domains. Profile setup requires a name and village; a mobile number is not required. Existing accounts that were created only with phone authentication need Google sign-in linked to their existing Firebase account before phone authentication is disabled for that account. Screens that load account, pilot, or administrator data also need a compatible API at `VITE_API_URL` and an account with the required role. During local development, start the Express API from `Backend` on port 5000. A browser `Failed to fetch` message means the API could not be reached or the browser blocked it; check that the API is running and that its `FRONTEND_URL` exactly matches the frontend origin. For a production build, set `VITE_API_URL` to the deployed API origin before building; deployed builds do not fall back to a developer's `localhost`.
 
 ## Frontend structure
 
@@ -95,4 +95,4 @@ src/
 
 ## Build output
 
-`npm run build` writes static frontend assets to `dist/`. Serve that directory with a static web host configured for the app's entry page. Set the production `VITE_API_URL` before building if the UI should call a non-local API.
+`npm run build` writes static frontend assets to `dist/`. For Vercel, set the project Root Directory to `Frontend`, add the Firebase web configuration and `VITE_API_URL` under Project Settings → Environment Variables, then redeploy. `VITE_API_URL` is the backend origin only, for example `https://your-service.onrender.com`; the frontend appends paths such as `/api/auth/me` itself. Configure its production value before building because Vite embeds it into the bundle.

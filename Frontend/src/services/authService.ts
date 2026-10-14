@@ -1,12 +1,8 @@
 import {
-  ConfirmationResult,
   GoogleAuthProvider,
-  RecaptchaVerifier,
   User,
   browserSessionPersistence,
-  linkWithPhoneNumber,
   onAuthStateChanged,
-  signInWithPhoneNumber,
   signInWithPopup,
   setPersistence,
   signOut,
@@ -76,38 +72,6 @@ export async function signInWithGoogle() {
   provider.setCustomParameters({ prompt: 'select_account' });
   const result = await signInWithPopup(auth, provider);
   return result.user;
-}
-
-export function normalizeIndianPhoneNumber(value: string) {
-  const compact = value.replace(/[\s()-]/g, '');
-  if (/^[6-9]\d{9}$/.test(compact)) return `+91${compact}`;
-  if (/^\+91[6-9]\d{9}$/.test(compact)) return compact;
-  throw new Error('Enter a valid Indian mobile number, including +91 if needed.');
-}
-
-export function createPhoneVerifier(elementId: string) {
-  const auth = requireAuth();
-  return new RecaptchaVerifier(auth, elementId, { size: 'invisible' });
-}
-
-export async function sendPhoneOtp(phoneNumber: string, verifier: RecaptchaVerifier) {
-  const auth = requireAuth();
-  await setPersistence(auth, browserSessionPersistence);
-  return signInWithPhoneNumber(auth, normalizeIndianPhoneNumber(phoneNumber), verifier);
-}
-
-export async function verifyPhoneOtp(result: ConfirmationResult, code: string) {
-  const credential = await result.confirm(code);
-  return credential.user;
-}
-
-export async function sendPhoneLinkOtp(
-  phoneNumber: string,
-  verifier: RecaptchaVerifier,
-) {
-  const user = requireAuth().currentUser;
-  if (!user) throw new Error('Sign in before linking a mobile number.');
-  return linkWithPhoneNumber(user, normalizeIndianPhoneNumber(phoneNumber), verifier);
 }
 
 export async function getApplicationUser(user: User): Promise<AppUser> {
@@ -195,12 +159,36 @@ async function authenticatedRequest<T>(
   } catch {
     throw new Error(`Cannot reach the Khet Rakshak API at ${apiUrl}. Start the backend at http://localhost:5000 for local development, or set VITE_API_URL to the deployed API URL. If the API is running, check its CORS FRONTEND_URL setting.`);
   }
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data.message || `Request failed (${response.status}) at ${path}.`);
-  }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+
+  const contentType = response.headers.get('content-type') || '';
+  const responseBody = contentType.includes('application/json')
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => '');
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Your sign-in session could not be verified. Please sign in again.');
+    }
+    const serverMessage = typeof responseBody === 'object' && responseBody !== null && 'message' in responseBody
+      ? String(responseBody.message)
+      : typeof responseBody === 'string' && responseBody.trim()
+        ? responseBody.trim().slice(0, 240)
+        : '';
+    const requestId = typeof responseBody === 'object' && responseBody !== null && 'requestId' in responseBody
+      ? String(responseBody.requestId)
+      : response.headers.get('x-request-id');
+    if (requestId && response.status >= 500) {
+      throw new Error(`${serverMessage || `The API request failed with HTTP ${response.status}.`} Reference: ${requestId}`);
+    }
+    throw new Error(serverMessage || `The API request failed with HTTP ${response.status} at ${path}.`);
+  }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`The API returned an unexpected response at ${path}. Check that VITE_API_URL points to the backend base URL, without an /api suffix.`);
+  }
+  if (responseBody === null) throw new Error(`The API returned invalid JSON at ${path}.`);
+  return responseBody as T;
 }
 
 interface AppUserResponse {

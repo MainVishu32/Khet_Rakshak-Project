@@ -60,7 +60,7 @@ function destinationForRole(role: AppRole) {
 }
 
 function hasCompleteProfile(user: AppUser) {
-  return Boolean(user.fullName.trim() && user.mobileNumber && user.village.trim());
+  return Boolean(user.fullName.trim() && user.village.trim());
 }
 
 function isViewAllowed(view: string, role: AppRole) {
@@ -262,7 +262,7 @@ export default function App() {
         .then((user) => {
           setAuthUser(user);
           setCurrentRole(toFrontendRole(user.role));
-          if (!user.fullName || !user.mobileNumber || !user.village) {
+          if (!user.fullName || !user.village) {
             setCurrentView('profile-setup');
           } else if (currentViewRef.current === 'home' || currentViewRef.current === 'login') {
             setCurrentView(destinationForRole(user.role));
