@@ -58,7 +58,7 @@ export interface OperatorAssignment {
   status: string;
 }
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const apiUrl = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/+$/, '');
 
 function requireAuth() {
   if (!firebaseAuth) throw new Error('Authentication is not configured. Contact the site administrator.');
@@ -178,18 +178,26 @@ async function authenticatedRequest<T>(
   user: User,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!apiUrl) {
+    throw new Error('The API server is not configured for this deployment. Set VITE_API_URL to the deployed Khet Rakshak API URL and rebuild the frontend.');
+  }
   const token = await user.getIdToken();
-  const response = await fetch(`${apiUrl}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error(`Cannot reach the Khet Rakshak API at ${apiUrl}. Start the backend at http://localhost:5000 for local development, or set VITE_API_URL to the deployed API URL. If the API is running, check its CORS FRONTEND_URL setting.`);
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.message || `Request failed (${response.status}).`);
+    throw new Error(data.message || `Request failed (${response.status}) at ${path}.`);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

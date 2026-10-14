@@ -271,7 +271,10 @@ export default function App() {
         .catch((error: unknown) => {
           console.error('Unable to restore authenticated application session:', error);
           setAuthUser(null);
-          setAuthNotice('Unable to verify your account with the Khet Rakshak server. Please try again.');
+          const detail = error instanceof Error ? error.message : '';
+          setAuthNotice(detail
+            ? `Unable to verify your account with the Khet Rakshak server: ${detail}`
+            : 'Unable to verify your account with the Khet Rakshak server. Check that the API is available and try again.');
         })
         .finally(() => setAuthLoading(false));
     });

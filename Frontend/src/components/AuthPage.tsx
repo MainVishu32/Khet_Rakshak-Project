@@ -157,9 +157,21 @@ export default function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
         type="button"
         disabled={busy || !isFirebaseConfigured}
         onClick={handleGoogle}
-        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+        className="group flex w-full items-center justify-center gap-3 rounded-lg border border-[#747775] bg-white px-4 py-3 font-medium text-[#1f1f1f] shadow-sm transition hover:bg-[#f8faff] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4285f4] disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-500 dark:bg-white dark:text-[#1f1f1f]"
       >
-        {busy ? 'Please wait…' : 'Continue with Google'}
+        {busy ? (
+          <span>Please wait…</span>
+        ) : (
+          <>
+            <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" />
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.89c-.58 2.96-2.25 5.48-4.72 7.18l7.63 5.91c4.45-4.1 7.18-10.14 7.18-17.56Z" />
+              <path fill="#FBBC05" d="M10.53 28.59a14.4 14.4 0 0 1 0-9.18l-7.98-6.19a23.94 23.94 0 0 0 0 21.56l7.98-6.19Z" />
+              <path fill="#34A853" d="M24 48c6.47 0 11.9-2.13 15.87-5.79l-7.63-5.91c-2.12 1.42-4.84 2.2-8.24 2.2-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" />
+            </svg>
+            <span>Continue with Google</span>
+          </>
+        )}
       </button>
 
       <div className="my-5 flex items-center gap-3 text-xs text-gray-400">

@@ -78,7 +78,7 @@ Vite exposes variables prefixed with `VITE_` to code running in the browser. The
 
 The Firebase values in `.env.example` are client configuration. Do not put Firebase Admin credentials, service-account keys, database passwords, or other server secrets in a `VITE_*` variable. Vite reads `.env` when it starts, so restart the dev server after editing the file.
 
-Firebase sign-in requires a configured Firebase project and enabled sign-in providers. Screens that load account, pilot, or administrator data also need a compatible API at `VITE_API_URL` and an account with the required role.
+Firebase sign-in requires a configured Firebase project and enabled sign-in providers. Screens that load account, pilot, or administrator data also need a compatible API at `VITE_API_URL` and an account with the required role. During local development, start the Express API from `Backend` on port 5000. A browser `Failed to fetch` message means the API could not be reached or the browser blocked it; check that the API is running and that its `FRONTEND_URL` exactly matches the frontend origin. For a production build, set `VITE_API_URL` to the deployed API origin before building; deployed builds do not fall back to a developer's `localhost`.
 
 ## Frontend structure
 
