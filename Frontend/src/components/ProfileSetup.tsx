@@ -10,7 +10,7 @@ import {
 
 interface ProfileSetupProps {
   identity: User;
-  onComplete: (user: Awaited<ReturnType<typeof updateProfile>>) => void;
+  onComplete: (user: Awaited<ReturnType<typeof updateProfile>>) => void | Promise<void>;
 }
 
 function getFirebaseErrorCode(error: unknown) {
@@ -77,7 +77,7 @@ export default function ProfileSetup({ identity, onComplete }: ProfileSetupProps
     setBusy(true);
     setError('');
     try {
-      onComplete(await updateProfile(identity, { fullName, village }));
+      await onComplete(await updateProfile(identity, { fullName: fullName.trim(), village: village.trim() }));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Could not save your profile.');
     } finally {
@@ -92,8 +92,8 @@ export default function ProfileSetup({ identity, onComplete }: ProfileSetupProps
         <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Khet Rakshak</p><h1 className="font-display text-xl font-bold">Complete your farmer profile</h1></div>
       </div>
       <p className="mb-5 text-sm text-gray-500">Add your name, verified mobile number, and village before opening your farm workspace.</p>
-      {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <form onSubmit={saveProfile} className="space-y-4">
+      {error && <p id="profile-error" role="alert" className="mb-4 rounded-lg border border-[#b42318] bg-red-50 p-3 text-base text-[#7a1b14]">{error}</p>}
+      <form onSubmit={saveProfile} aria-busy={busy} className="space-y-4">
         <label className="block text-sm font-semibold">Full name
           <input required minLength={2} maxLength={120} value={fullName} onChange={(event) => setFullName(event.target.value)} className="mt-1 w-full rounded-xl border border-gray-300 bg-transparent px-3 py-3 font-normal dark:border-gray-700" />
         </label>
@@ -107,13 +107,14 @@ export default function ProfileSetup({ identity, onComplete }: ProfileSetupProps
         ) : (
           <div className="space-y-3 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
             <label className="block text-sm font-semibold">Mobile number
-              <input type="tel" inputMode="tel" autoComplete="tel" required value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 98765 43210" className="mt-1 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 font-normal dark:border-gray-700" />
+                <input type="tel" inputMode="tel" autoComplete="tel" required aria-invalid={Boolean(error)} aria-describedby={error ? 'profile-error' : undefined} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 98765 43210" className="mt-1 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 font-normal dark:border-gray-700" />
             </label>
             {!confirmation ? (
               <button type="button" onClick={() => void sendOtp()} disabled={busy} className="w-full rounded-lg border border-emerald-700 py-2.5 font-bold text-emerald-800 disabled:opacity-50">Verify mobile with OTP</button>
             ) : (
               <>
-                <input aria-label="One-time code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))} placeholder="6-digit code" className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 dark:border-gray-700" />
+                <label htmlFor="profile-otp" className="block text-sm font-semibold">6-digit verification code</label>
+                <input id="profile-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} aria-invalid={Boolean(error)} aria-describedby={error ? 'profile-error' : undefined} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))} placeholder="6-digit code" className="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 dark:border-gray-700" />
                 <button type="button" onClick={() => void verifyOtp()} disabled={busy || otp.length !== 6} className="w-full rounded-lg bg-emerald-700 py-2.5 font-bold text-white disabled:opacity-50">Confirm mobile number</button>
               </>
             )}

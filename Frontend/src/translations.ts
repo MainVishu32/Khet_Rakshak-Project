@@ -7,6 +7,20 @@ import { Language } from './types';
 
 export const translations: Record<Language, Record<string, string>> = {
   en: {
+    demo_sample_only: 'Sample only · no real farm data',
+    welcome: 'Welcome',
+    dashboard_prompt: 'Choose what you would like to do.',
+    farm_details: 'View or add your farm details.',
+    crop_report_missing: 'No crop report is available yet.',
+    booking_unavailable: 'Drone booking is not available yet.',
+    expert_unavailable: 'Expert consultation is not available yet.',
+    session_data_note: 'Farm details stay in this browser session. Reports and visits appear when connected services provide them.',
+
+    landing_title: 'Manage your farm information and find agricultural services in one place.',
+    landing_subtitle: 'Check crop health and see which farm services are available.',
+    landing_action: 'Login / Create Account',
+    landing_note: 'Crop reports, farm records, and drone booking are not connected yet.',
+
     app_title: "Khet Rakshak",
     app_tagline: "Har Khet Ki Digital Suraksha",
     hero_headline: "Drone & AI powered Crop Health check, before damage spreads.",
@@ -99,6 +113,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "Report ready",
   },
   hi: {
+    demo_sample_only: 'केवल नमूना · खेत का असली डेटा नहीं',
+    welcome: 'नमस्ते',
+    dashboard_prompt: 'चुनें कि आप क्या करना चाहते हैं।',
+    farm_details: 'अपने खेत की जानकारी देखें या जोड़ें।',
+    crop_report_missing: 'फसल की कोई रिपोर्ट अभी उपलब्ध नहीं है।',
+    booking_unavailable: 'ड्रोन बुकिंग अभी उपलब्ध नहीं है।',
+    expert_unavailable: 'कृषि विशेषज्ञ से सलाह अभी उपलब्ध नहीं है।',
+    session_data_note: 'खेत की जानकारी इस ब्राउज़र सत्र में रहती है। रिपोर्ट और मुलाक़ात की जानकारी सेवा जुड़ने पर दिखेगी।',
+
+    landing_title: 'अपने खेत की जानकारी सँभालें और कृषि सेवाएँ एक ही जगह देखें।',
+    landing_subtitle: 'फसल की सेहत की जानकारी और उपलब्ध खेत सेवाएँ देखें।',
+    landing_action: 'लॉगिन / खाता बनाएँ',
+    landing_note: 'फसल रिपोर्ट, खेत के रिकॉर्ड और ड्रोन बुकिंग अभी जुड़ी नहीं हैं।',
+
     app_title: "खेत रक्षक",
     app_tagline: "हर खेत की डिजिटल सुरक्षा",
     hero_headline: "ड्रोन और एआई से फसल की सेहत का पता, नुकसान फैलने से पहले।",
@@ -191,6 +219,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "रिपोर्ट तैयार है",
   },
   mr: {
+    demo_sample_only: 'फक्त नमुना · शेताचा खरा डेटा नाही',
+    welcome: 'नमस्कार',
+    dashboard_prompt: 'तुम्हाला काय करायचे आहे ते निवडा.',
+    farm_details: 'शेताची माहिती पहा किंवा जोडा.',
+    crop_report_missing: 'पीक अहवाल अजून उपलब्ध नाही.',
+    booking_unavailable: 'ड्रोन बुकिंग अजून उपलब्ध नाही.',
+    expert_unavailable: 'कृषी तज्ज्ञांचा सल्ला अजून उपलब्ध नाही.',
+    session_data_note: 'शेताची माहिती या ब्राउझर सत्रात राहते. सेवा जोडल्यावर अहवाल आणि भेटी दिसतील.',
+
+    landing_title: 'तुमच्या शेताची माहिती सांभाळा आणि शेती सेवा एकाच ठिकाणी पहा.',
+    landing_subtitle: 'पिकांच्या आरोग्याची माहिती आणि उपलब्ध शेती सेवा पहा.',
+    landing_action: 'लॉगिन / खाते तयार करा',
+    landing_note: 'पीक अहवाल, शेताची नोंद आणि ड्रोन बुकिंग अजून जोडलेले नाहीत.',
+
     app_title: "शेत रक्षक",
     app_tagline: "हर शेताची डिजिटल सुरक्षा",
     hero_headline: "ड्रोन आणि एआय द्वारे पिकाच्या आरोग्याची तपासणी, नुकसान पसरण्यापूर्वी.",
@@ -283,6 +325,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "अहवाल तयार आहे",
   },
   gu: {
+    demo_sample_only: 'ફક્ત નમૂનો · ખેતરનો વાસ્તવિક ડેટા નથી',
+    welcome: 'નમસ્તે',
+    dashboard_prompt: 'તમારે શું કરવું છે તે પસંદ કરો.',
+    farm_details: 'ખેતરની માહિતી જુઓ અથવા ઉમેરો.',
+    crop_report_missing: 'પાકનો અહેવાલ હજી ઉપલબ્ધ નથી.',
+    booking_unavailable: 'ડ્રોન બુકિંગ હજી ઉપલબ્ધ નથી.',
+    expert_unavailable: 'કૃષિ નિષ્ણાતની સલાહ હજી ઉપલબ્ધ નથી.',
+    session_data_note: 'ખેતરની માહિતી આ બ્રાઉઝર સત્રમાં રહે છે. સેવા જોડાશે ત્યારે અહેવાલ અને મુલાકાત દેખાશે.',
+
+    landing_title: 'તમારા ખેતરની માહિતી સાચવો અને ખેતીની સેવાઓ એક જ જગ્યાએ જુઓ.',
+    landing_subtitle: 'પાકનું સ્વાસ્થ્ય અને ઉપલબ્ધ ખેતી સેવાઓ તપાસો.',
+    landing_action: 'લૉગિન / ખાતું બનાવો',
+    landing_note: 'પાકના અહેવાલ, ખેતરની નોંધ અને ડ્રોન બુકિંગ હજી જોડાયેલાં નથી.',
+
     app_title: "ખેત રક્ષક",
     app_tagline: "હર ખેત કી ડિજિટલ સુરક્ષા",
     hero_headline: "ડ્રોન અને એઆઈ દ્વારા પાકના સ્વાસ્થ્યની તપાસ, નુકસાન વધે તે પહેલાં.",
@@ -367,6 +423,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "અહેવાલ તૈયાર છે",
   },
   pa: {
+    demo_sample_only: 'ਸਿਰਫ਼ ਨਮੂਨਾ · ਖੇਤ ਦਾ ਅਸਲ ਡਾਟਾ ਨਹੀਂ',
+    welcome: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ',
+    dashboard_prompt: 'ਚੁਣੋ ਕਿ ਤੁਸੀਂ ਕੀ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ।',
+    farm_details: 'ਆਪਣੇ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਵੇਖੋ ਜਾਂ ਜੋੜੋ।',
+    crop_report_missing: 'ਫਸਲ ਦੀ ਰਿਪੋਰਟ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।',
+    booking_unavailable: 'ਡਰੋਨ ਬੁਕਿੰਗ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।',
+    expert_unavailable: 'ਖੇਤੀ ਮਾਹਿਰ ਦੀ ਸਲਾਹ ਹਾਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।',
+    session_data_note: 'ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਇਸ ਬ੍ਰਾਊਜ਼ਰ ਸੈਸ਼ਨ ਵਿੱਚ ਰਹਿੰਦੀ ਹੈ। ਸੇਵਾ ਜੁੜਨ ਤੇ ਰਿਪੋਰਟਾਂ ਅਤੇ ਮੁਲਾਕਾਤਾਂ ਦਿਖਣਗੀਆਂ।',
+
+    landing_title: 'ਆਪਣੇ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ ਸੰਭਾਲੋ ਅਤੇ ਖੇਤੀ ਸੇਵਾਵਾਂ ਇੱਕ ਥਾਂ ਵੇਖੋ।',
+    landing_subtitle: 'ਫਸਲ ਦੀ ਸਿਹਤ ਅਤੇ ਉਪਲਬਧ ਖੇਤੀ ਸੇਵਾਵਾਂ ਵੇਖੋ।',
+    landing_action: 'ਲੌਗਇਨ / ਖਾਤਾ ਬਣਾਓ',
+    landing_note: 'ਫਸਲ ਰਿਪੋਰਟਾਂ, ਖੇਤ ਦੇ ਰਿਕਾਰਡ ਅਤੇ ਡਰੋਨ ਬੁਕਿੰਗ ਹਾਲੇ ਜੁੜੇ ਨਹੀਂ ਹਨ।',
+
     app_title: "ਖੇਤ ਰੱਖਿਅਕ",
     app_tagline: "ਹਰ ਖੇਤ ਦੀ ਡਿਜੀਟਲ ਸੁਰੱਖਿਆ",
     hero_headline: "ਡਰੋਨ ਅਤੇ ਏਆਈ ਨਾਲ ਫਸਲ ਦੀ ਸਿਹਤ ਦੀ ਜਾਂਚ, ਨੁਕਸਾਨ ਫੈਲਣ ਤੋਂ ਪਹਿਲਾਂ।",
@@ -451,6 +521,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "ਰਿਪੋਰਟ ਤਿਆਰ ਹੈ",
   },
   ta: {
+    demo_sample_only: 'மாதிரி மட்டும் · உண்மையான பண்ணைத் தரவு இல்லை',
+    welcome: 'வணக்கம்',
+    dashboard_prompt: 'நீங்கள் செய்ய விரும்புவதைத் தேர்ந்தெடுக்கவும்.',
+    farm_details: 'பண்ணை விவரங்களைப் பார்க்கவும் அல்லது சேர்க்கவும்.',
+    crop_report_missing: 'பயிர் அறிக்கை இன்னும் இல்லை.',
+    booking_unavailable: 'ட்ரோன் முன்பதிவு இன்னும் கிடைக்கவில்லை.',
+    expert_unavailable: 'வேளாண் நிபுணர் ஆலோசனை இன்னும் கிடைக்கவில்லை.',
+    session_data_note: 'பண்ணை விவரங்கள் இந்த உலாவி அமர்வில் மட்டும் இருக்கும். சேவை இணைக்கப்பட்டதும் அறிக்கைகளும் வருகைகளும் காட்டப்படும்.',
+
+    landing_title: 'உங்கள் பண்ணை விவரங்களை நிர்வகித்து, வேளாண் சேவைகளை ஒரே இடத்தில் பாருங்கள்.',
+    landing_subtitle: 'பயிர் நிலை மற்றும் கிடைக்கும் பண்ணை சேவைகளைப் பாருங்கள்.',
+    landing_action: 'உள்நுழை / கணக்கு உருவாக்கு',
+    landing_note: 'பயிர் அறிக்கைகள், பண்ணை விவரங்கள், ட்ரோன் முன்பதிவு இன்னும் இணைக்கப்படவில்லை.',
+
     app_title: "கேத் ரக்ஷக்",
     app_tagline: "ஹர் கேத் கி டிஜிட்டல் சுரக்ஷா",
     hero_headline: "பயிர்களின் ஆரோக்கியத்தை ட்ரோன் மற்றும் ஏஐ மூலம் கண்காணிக்கவும், பாதிப்பு பரவும் முன்.",
@@ -535,6 +619,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "அறிக்கை தயார்",
   },
   te: {
+    demo_sample_only: 'నమూనా మాత్రమే · నిజమైన పొలం సమాచారం కాదు',
+    welcome: 'నమస్కారం',
+    dashboard_prompt: 'మీరు చేయాలనుకునే పనిని ఎంచుకోండి.',
+    farm_details: 'మీ పొలం వివరాలను చూడండి లేదా జోడించండి.',
+    crop_report_missing: 'పంట నివేదిక ఇంకా అందుబాటులో లేదు.',
+    booking_unavailable: 'డ్రోన్ బుకింగ్ ఇంకా అందుబాటులో లేదు.',
+    expert_unavailable: 'వ్యవసాయ నిపుణుల సలహా ఇంకా అందుబాటులో లేదు.',
+    session_data_note: 'పొలం వివరాలు ఈ బ్రౌజర్ సెషన్\u200cలోనే ఉంటాయి. సేవ అనుసంధానమైన తర్వాత నివేదికలు, సందర్శనలు కనిపిస్తాయి.',
+
+    landing_title: 'మీ పొలం వివరాలను చూసుకోండి, వ్యవసాయ సేవలను ఒకే చోట చూడండి.',
+    landing_subtitle: 'పంట ఆరోగ్య సమాచారం, అందుబాటులో ఉన్న సేవలను చూడండి.',
+    landing_action: 'లాగిన్ / ఖాతా సృష్టించండి',
+    landing_note: 'పంట నివేదికలు, పొలం వివరాలు, డ్రోన్ బుకింగ్ ఇంకా అనుసంధానం కాలేదు.',
+
     app_title: "ఖేత్ రక్షక్",
     app_tagline: "హర్ ఖేత్ కీ డిజిటల్ సురక్ష",
     hero_headline: "డ్రోన్ మరియు ఏఐ ద్వారా పంట ఆరోగ్యం పరిశీలన, నష్టం విస్తరించక ముందే.",
@@ -619,6 +717,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "నివేదిక సిద్ధంగా ఉంది",
   },
   kn: {
+    demo_sample_only: 'ಮಾದರಿ ಮಾತ್ರ · ನಿಜವಾದ ಹೊಲದ ಮಾಹಿತಿ ಅಲ್ಲ',
+    welcome: 'ನಮಸ್ಕಾರ',
+    dashboard_prompt: 'ನೀವು ಏನು ಮಾಡಲು ಬಯಸುತ್ತೀರಿ ಎಂದು ಆಯ್ಕೆಮಾಡಿ.',
+    farm_details: 'ಹೊಲದ ವಿವರಗಳನ್ನು ನೋಡಿ ಅಥವಾ ಸೇರಿಸಿ.',
+    crop_report_missing: 'ಬೆಳೆ ವರದಿ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.',
+    booking_unavailable: 'ಡ್ರೋನ್ ಬುಕಿಂಗ್ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.',
+    expert_unavailable: 'ಕೃಷಿ ತಜ್ಞರ ಸಲಹೆ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.',
+    session_data_note: 'ಹೊಲದ ವಿವರಗಳು ಈ ಬ್ರೌಸರ್ ಅವಧಿಯಲ್ಲಿ ಮಾತ್ರ ಇರುತ್ತವೆ. ಸೇವೆ ಸಂಪರ್ಕವಾದಾಗ ವರದಿಗಳು ಮತ್ತು ಭೇಟಿಗಳು ಕಾಣಿಸುತ್ತವೆ.',
+
+    landing_title: 'ನಿಮ್ಮ ಹೊಲದ ವಿವರಗಳನ್ನು ನೋಡಿಕೊಳ್ಳಿ ಮತ್ತು ಕೃಷಿ ಸೇವೆಗಳನ್ನು ಒಂದೇ ಕಡೆ ನೋಡಿ.',
+    landing_subtitle: 'ಬೆಳೆ ಆರೋಗ್ಯ ಮಾಹಿತಿ ಮತ್ತು ಲಭ್ಯವಿರುವ ಸೇವೆಗಳನ್ನು ನೋಡಿ.',
+    landing_action: 'ಲಾಗಿನ್ / ಖಾತೆ ರಚಿಸಿ',
+    landing_note: 'ಬೆಳೆ ವರದಿಗಳು, ಹೊಲದ ದಾಖಲೆಗಳು ಮತ್ತು ಡ್ರೋನ್ ಬುಕಿಂಗ್ ಇನ್ನೂ ಸಂಪರ್ಕಗೊಂಡಿಲ್ಲ.',
+
     app_title: "ಖೇತ್ ರಕ್ಷಕ್",
     app_tagline: "ಹರ್ ಖೇತ್ ಕೀ ಡಿಜಿಟಲ್ ಸುರಕ್ಷಾ",
     hero_headline: "ಡ್ರೋನ್ ಮತ್ತು ಎಐ ಮೂಲಕ ಬೆಳೆ ಆರೋಗ್ಯದ ತಪಾಸಣೆ, ಹಾನಿ ಹರಡುವ ಮುನ್ನವೇ.",
@@ -703,6 +815,20 @@ export const translations: Record<Language, Record<string, string>> = {
     timeline_9: "ವರದಿ ಸಿದ್ಧವಾಗಿದೆ",
   },
   bn: {
+    demo_sample_only: 'শুধু নমুনা · আসল খামারের তথ্য নয়',
+    welcome: 'নমস্কার',
+    dashboard_prompt: 'আপনি কী করতে চান তা বেছে নিন।',
+    farm_details: 'খামারের তথ্য দেখুন বা যোগ করুন।',
+    crop_report_missing: 'ফসলের প্রতিবেদন এখনও পাওয়া যায়নি।',
+    booking_unavailable: 'ড্রোন বুকিং এখনও পাওয়া যাচ্ছে না।',
+    expert_unavailable: 'কৃষি বিশেষজ্ঞের পরামর্শ এখনও পাওয়া যাচ্ছে না।',
+    session_data_note: 'খামারের তথ্য এই ব্রাউজার সেশনেই থাকে। পরিষেবা যুক্ত হলে প্রতিবেদন ও পরিদর্শনের তথ্য দেখা যাবে।',
+
+    landing_title: 'আপনার খামারের তথ্য রাখুন এবং কৃষি পরিষেবা এক জায়গায় দেখুন।',
+    landing_subtitle: 'ফসলের স্বাস্থ্য ও উপলব্ধ কৃষি পরিষেবা দেখুন।',
+    landing_action: 'লগইন / অ্যাকাউন্ট তৈরি করুন',
+    landing_note: 'ফসলের প্রতিবেদন, খামারের তথ্য ও ড্রোন বুকিং এখনও সংযুক্ত নয়.',
+
     app_title: "খেত রক্ষক",
     app_tagline: "হর খেত কী ডিজিটাল সুরক্ষা",
     hero_headline: "ড্রোন ও এআই-এর মাধ্যমে ফসলের স্বাস্থ্য পরীক্ষা করুন, ক্ষতি ছড়িয়ে পড়ার আগেই।",

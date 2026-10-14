@@ -112,7 +112,7 @@ export default function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
   };
 
   return (
-    <section className="mx-auto my-8 max-w-3xl rounded-3xl border border-gray-100 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900 sm:p-9">
+    <section aria-busy={busy} className="mx-auto my-6 max-w-3xl rounded-3xl border border-[#7b8d80] bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:my-8 sm:p-9">
       <button onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-900 dark:text-emerald-400">
         <ArrowLeft className="h-4 w-4" /> Back to Khet Rakshak
       </button>
@@ -150,8 +150,8 @@ export default function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
           Authentication is not configured yet. The site administrator must configure the Firebase client environment variables.
         </div>
       )}
-      {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {message && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
+      {error && <p id="auth-error" role="alert" className="mb-4 rounded-xl border border-[#b42318] bg-red-50 p-3 text-base text-[#7a1b14]">{error}</p>}
+      {message && <p role="status" aria-live="polite" className="mb-4 rounded-xl border border-[#176b3a] bg-green-50 p-3 text-base text-[#174c2c]">{message}</p>}
 
       <button
         type="button"
@@ -177,6 +177,8 @@ export default function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
               autoComplete="tel-national"
               inputMode="tel"
               value={phone}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? 'auth-error' : undefined}
               onChange={(event) => setPhone(event.target.value)}
               placeholder="Mobile number"
               required
@@ -200,6 +202,8 @@ export default function AuthPage({ onAuthenticated, onBack }: AuthPageProps) {
             maxLength={6}
             pattern="[0-9]{6}"
             value={otp}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? 'auth-error' : undefined}
             onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))}
             placeholder="6-digit code"
             required

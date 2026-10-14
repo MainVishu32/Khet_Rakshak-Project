@@ -24,7 +24,6 @@ import AuthPage from './components/AuthPage';
 import ProfileSetup from './components/ProfileSetup';
 import FarmSetup, { EmptyFarmState } from './components/FarmSetup';
 import AdminAccessManagement from './components/AdminAccessManagement';
-import FarmerDashboard from './components/FarmerDashboard';
 import BookingFlow from './components/BookingFlow';
 import BookingManagement from './components/BookingManagement';
 import DroneAnalysis from './components/DroneAnalysis';
@@ -33,6 +32,7 @@ import CropAdvisory from './components/CropAdvisory';
 import ExpertConsultation from './components/ExpertConsultation';
 import OtherDashboards from './components/OtherDashboards';
 import WalletPayments from './components/WalletPayments';
+import { EmptyState, StatusBadge } from './components/Ui';
 import {
   AppRole,
   AppUser,
@@ -149,17 +149,36 @@ export default function App() {
 
   // --- Notifications Drawer States ---
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 'n1', text: 'Critical: Purple blotch fungal spot spotted in Zone D.', read: false, time: '1 hour ago' },
-    { id: 'n2', text: 'Drip line water pressure warning: West Grid moisture below 18%.', read: false, time: '3 hours ago' },
-    { id: 'n3', text: 'Your scheduled drone flight has been approved for July 12th.', read: true, time: 'Yesterday' }
-  ]);
+  const notificationsDialogRef = useRef<HTMLElement>(null);
+  const [notifications, setNotifications] = useState<{ id: string; text: string; read: boolean; time: string }[]>([]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleMarkNotificationsRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = notificationsDialogRef.current;
+    dialog?.querySelector<HTMLElement>('button')?.focus();
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setIsNotificationsOpen(false); return; }
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll('button:not(:disabled), a[href]')) as HTMLElement[];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', handleDialogKeys);
+    return () => {
+      window.removeEventListener('keydown', handleDialogKeys);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isNotificationsOpen]);
 
   // --- Speech Readout simulator ---
   // Safe text-to-speech fallback if Web Speech API isn't fully supported
@@ -203,12 +222,24 @@ export default function App() {
   // --- Sync theme class with HTML DOM root ---
   useEffect(() => {
     const root = window.document.documentElement;
+    root.classList.toggle('large-text', isLargeText);
     if (currentTheme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-  }, [currentTheme]);
+  }, [currentTheme, isLargeText]);
+
+  useEffect(() => {
+    const updateNetworkStatus = () => setNetworkStatus(window.navigator.onLine ? 'online' : 'offline');
+    updateNetworkStatus();
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
 
   useEffect(() => {
     if (!firebaseAuth) {
@@ -346,7 +377,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${
-      currentTheme === 'dark' ? 'bg-gray-950 text-white' : 'bg-[#faf9f5] text-gray-900'
+      currentTheme === 'dark' ? 'bg-[#111a14] text-white' : 'bg-[#f7f9f5] text-[#17251c]'
     } ${isLargeText ? 'text-lg font-medium' : 'text-sm'}`}>
       
       {/* 1. Header Navigation Shell */}
@@ -387,7 +418,7 @@ export default function App() {
       )}
 
       {/* Main Grid View Content Router */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         {authNotice && (
           <div role="alert" className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
             {authNotice}
@@ -396,11 +427,6 @@ export default function App() {
         {authLoading && (
           <div role="status" className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center text-sm text-gray-600 shadow dark:bg-gray-900 dark:text-gray-300">
             Checking your secure session…
-          </div>
-        )}
-        {!authLoading && authUser && !['home', 'login', 'profile-setup'].includes(currentView) && (
-          <div role="note" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-            Prototype preview: farm, booking, sensor, and flight details shown on these screens are illustrative and are not live or persisted operational records.
           </div>
         )}
         
@@ -436,17 +462,28 @@ export default function App() {
           <>
             {/* 1. Farmer Cockpit Dashboard */}
             {currentView === 'dashboard' && (
-              activeFarm ? <FarmerDashboard
-                currentLanguage={currentLanguage}
-                onNavigate={handleNavigate}
-                currentTheme={currentTheme}
-                isLargeText={isLargeText}
-                onSpeakText={handleSpeakText}
-                activeFarm={activeFarm}
-                registeredFarms={registeredFarms}
-                onSelectFarm={handleSelectFarm}
-                onTriggerExpertChat={handleTriggerExpertChat}
-              /> : <EmptyFarmState onAddFarm={() => handleNavigate('register')} />
+              <section className="mx-auto max-w-5xl space-y-6" aria-labelledby="farmer-home-title">
+                <header className="rounded-3xl border border-[#7b8d80] bg-white p-6 dark:border-[#536458] dark:bg-[#1b2920] sm:p-8">
+                  <p className="text-base font-semibold text-[#176b3a] dark:text-[#a5e8b5]">{t.welcome}{userName ? `, ${userName}` : ''}</p>
+                  <h1 id="farmer-home-title" className="mt-2 text-3xl font-bold leading-tight text-[#17251c] dark:text-white sm:text-4xl">{t.farmer_dashboard}</h1>
+                  <p className="mt-2 text-lg text-[#465449] dark:text-[#c2cec3]">{activeFarm ? `${activeFarm.name} | ${activeFarm.location}` : userVillage ? `Village: ${userVillage}` : 'Manage your farm details and find services here.'}</p>
+                </header>
+                <h2 className="text-2xl font-bold text-[#17251c] dark:text-white">{t.dashboard_prompt}</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[
+                    { title: t.farms, text: t.farm_details, action: 'farms', icon: Map },
+                    { title: t.overall_health, text: t.crop_report_missing, action: 'drone-analysis', icon: Shield },
+                    { title: t.book_drone, text: t.booking_unavailable, action: 'booking-flow', icon: CalendarClock },
+                    { title: t.expert, text: t.expert_unavailable, action: 'expert', icon: PhoneCall },
+                  ].map(({ title, text, action, icon: Icon }) => (
+                    <button key={title} onClick={() => handleNavigate(action)} className="group flex min-h-32 w-full items-start gap-4 rounded-2xl border border-[#7b8d80] bg-white p-5 text-left shadow-sm transition hover:border-[#176b3a] hover:bg-[#f1f7f1] dark:border-[#536458] dark:bg-[#1b2920] dark:hover:bg-[#23372a] sm:p-6">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#e9f3e9] text-[#176b3a] dark:bg-[#263e2e] dark:text-[#a5e8b5]"><Icon aria-hidden="true" className="h-6 w-6" /></span>
+                      <span className="min-w-0"><span className="block text-xl font-bold text-[#17251c] dark:text-white">{title}</span><span className="mt-1 block text-base leading-6 text-[#465449] dark:text-[#c2cec3]">{text}</span></span>
+                    </button>
+                  ))}
+                </div>
+                <EmptyState title={t.farmer_dashboard} detail={t.session_data_note} />
+              </section>
             )}
 
             {/* 2. Farms selector onboarding page */}
@@ -454,7 +491,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
                   <h2 className="font-display font-bold text-lg text-emerald-950 dark:text-white">Registered Land Plots</h2>
-                  <p className="text-xs text-gray-500">Farm plots are held only in this signed-in browser session; persistent farm storage is not available in the existing backend.</p>
+                  <p className="text-xs text-gray-500">These farm details stay in this browser session. They are not saved to your account or available on another device.</p>
                   {registeredFarms.length === 0 && <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">No plots have been added in this session yet.</p>}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -476,10 +513,7 @@ export default function App() {
                             {f.crop}
                           </span>
                         </div>
-                        <div className="border-t border-dashed mt-4 pt-3 flex justify-between text-[11px] text-gray-500">
-                          <span>Sown on: <strong>{f.sowingDate}</strong></span>
-                          <span>Health Score: <strong className="text-emerald-700">{f.latestHealthScore}%</strong></span>
-                        </div>
+                        <p className="mt-3 border-t border-dashed pt-3 text-xs text-gray-600">Farm details are saved in this browser session only. Crop health is unavailable until a real scan report is connected.</p>
                         <button 
                           onClick={() => handleSelectFarm(f)}
                           className="w-full mt-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold"
@@ -501,66 +535,36 @@ export default function App() {
             )}
 
             {/* 3. Multi-Step Drone Booking Flow */}
-            {currentView === 'booking-flow' && (
-              activeFarm ? <BookingFlow
-                currentLanguage={currentLanguage}
-                registeredFarms={registeredFarms}
-                activeFarm={activeFarm}
-                onBookingConfirm={handleBookingConfirm}
-                onNavigate={handleNavigate}
-              /> : <EmptyFarmState onAddFarm={() => handleNavigate('register')} />
-            )}
+            {currentView === 'booking-flow' && <UnavailableFeature title="Drone booking" detail="Online booking is not connected to the service yet. No booking has been created. Please contact your local service team to arrange a visit." />}
 
             {/* 4. Live Telemetry Tracker & Bookings Management */}
             {currentView === 'bookings-list' && (
-              <BookingManagement
-                currentLanguage={currentLanguage}
-                bookings={bookings}
-                onStatusUpdate={handleBookingStatusUpdate}
-                onCancelBooking={handleCancelBooking}
-              />
+              <UnavailableFeature title="My bookings" detail="Booking records are not available because the booking service is not connected yet." />
             )}
 
             {/* 5. AI Drone Analysis & Compare screen */}
             {currentView === 'drone-analysis' && (
-              <DroneAnalysis
-                currentLanguage={currentLanguage}
-                onNavigate={handleNavigate}
-                onSpeakText={handleSpeakText}
-              />
+              <UnavailableFeature title="Crop health reports" detail="No scan reports are available. Drone image upload and crop analysis are not connected, so this page will not show a prediction." />
             )}
 
             {/* 6. Live Soil Ground Sensors Cockpit */}
             {currentView === 'sensors' && (
-              <SensorDashboard
-                currentLanguage={currentLanguage}
-                currentTheme={currentTheme}
-              />
+              <UnavailableFeature title="Field readings" detail="Sensor readings are not connected for this farm." />
             )}
 
             {/* 7. Advisory Panel & Task calendar */}
             {currentView === 'advisory' && (
-              <CropAdvisory
-                currentLanguage={currentLanguage}
-                onSpeakText={handleSpeakText}
-                onNavigate={handleNavigate}
-              />
+              <UnavailableFeature title="Crop advice" detail="There are no farm scan reports connected to use for crop advice. Advice and detected issues will appear here when supported farm data is available." />
             )}
 
             {/* 8. Expert Consultation Chatbot & Video */}
             {currentView === 'expert' && (
-              <ExpertConsultation
-                currentLanguage={currentLanguage}
-                initialMessage={expertInitialMessage}
-                onClearInitialMessage={() => setExpertInitialMessage('')}
-              />
+              <UnavailableFeature title="Ask an expert" detail="Expert messaging and consultation booking are not connected to a service yet." />
             )}
 
             {/* 9. Wallet & Ledger Panel */}
             {currentView === 'expenses' && (
-              <WalletPayments
-                currentLanguage={currentLanguage}
-              />
+              <UnavailableFeature title="Payments" detail="Payments and wallet balances are not connected. No payment can be made here." />
             )}
           </>
         )}
@@ -589,11 +593,7 @@ export default function App() {
         {!authLoading && authUser?.role === 'ADMIN' && currentView === 'admin-dash' && (
           <div className="space-y-6">
             {identity && <AdminAccessManagement identity={identity} />}
-            <OtherDashboards
-              currentLanguage={currentLanguage}
-              currentTheme={currentTheme}
-              currentRole="admin"
-            />
+            <UnavailableFeature title="Bookings and crop reports" detail="Booking records and crop reports are not available yet." />
           </div>
         )}
 
@@ -634,23 +634,24 @@ export default function App() {
 
       {/* Regional Warnings / Alert Notifications Side drawer panel */}
       {isNotificationsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex justify-end" onClick={() => setIsNotificationsOpen(false)}>
-          <div className={`w-80 max-w-full h-full p-5 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-200 ${
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60" onClick={() => setIsNotificationsOpen(false)}>
+          <section ref={notificationsDialogRef} role="dialog" aria-modal="true" aria-labelledby="notifications-title" className={`w-full max-w-md h-full overflow-y-auto p-5 flex flex-col justify-between shadow-2xl ${
             currentTheme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-950'
           }`} onClick={e => e.stopPropagation()}>
             
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b pb-4">
-                <h3 className="font-display font-bold text-lg text-emerald-950 dark:text-emerald-400 flex items-center gap-1.5">
+                <h2 id="notifications-title" className="font-display font-bold text-xl text-emerald-950 dark:text-emerald-400 flex items-center gap-1.5">
                   <ShieldAlert className="w-5 h-5 text-emerald-600" />
                   Regional Alerts
-                </h3>
-                <button onClick={() => setIsNotificationsOpen(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                </h2>
+                <button aria-label="Close notifications" onClick={() => setIsNotificationsOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
 
               <div className="divide-y divide-gray-100 dark:divide-gray-800 space-y-4 pt-1">
+                {notifications.length === 0 && <p className="rounded-xl bg-stone-50 p-4 text-sm leading-6 text-stone-700">Alerts are not connected for this account yet.</p>}
                 {notifications.map((n) => (
                   <div key={n.id} className="pt-3 text-xs space-y-1">
                     <div className="flex justify-between items-center text-[10px] text-gray-400">
@@ -668,10 +669,7 @@ export default function App() {
             </div>
 
             <div className="border-t pt-4 space-y-3">
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200/50 text-[10px] text-amber-800 dark:text-amber-400 leading-relaxed flex gap-2">
-                <Info className="w-4 h-4 shrink-0" />
-                <span>AI diagnostics are advisory. Verify in-field or consult an agronomist before spraying chemicals.</span>
-              </div>
+              <p className="text-xs text-gray-500">Alerts and scan reports will appear when those services are connected.</p>
               <button 
                 onClick={() => setIsNotificationsOpen(false)}
                 className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-md"
@@ -680,10 +678,18 @@ export default function App() {
               </button>
             </div>
 
-          </div>
+          </section>
         </div>
       )}
 
     </div>
   );
+}
+
+function UnavailableFeature({ title, detail }: { title: string; detail: string }) {
+  return <section className="mx-auto max-w-3xl rounded-3xl border border-stone-200 bg-white p-6 shadow-sm dark:border-[#536458] dark:bg-[#1b2920] sm:p-8" aria-labelledby="unavailable-title">
+    <StatusBadge status="Not available yet" tone="warning" />
+    <h1 id="unavailable-title" className="mt-2 text-2xl font-bold text-stone-900 dark:text-white">{title}</h1>
+    <div className="mt-4"><EmptyState title="No information to show" detail={detail} /></div>
+  </section>;
 }

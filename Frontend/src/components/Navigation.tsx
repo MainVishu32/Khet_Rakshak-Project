@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Menu, X, Globe, User, Bell, ChevronDown, Radio, 
   Sun, Moon, Type, Shield, LayoutDashboard, Map, 
@@ -55,6 +55,34 @@ export default function Navigation({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const mobileNavigationRef = useRef<HTMLElement>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = mobileNavigationRef.current;
+    panel?.querySelector<HTMLElement>('button')?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+        mobileMenuButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== 'Tab' || !panel) return;
+      const focusable = Array.from(panel.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled)')) as HTMLElement[];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isMobileMenuOpen]);
 
   const t = translations[currentLanguage];
   const roleLabel = currentRole === 'drone_pilot'
@@ -98,10 +126,10 @@ export default function Navigation({
           ? 'bg-gray-900 border-gray-800 text-white' 
           : 'bg-white border-gray-100 text-gray-900'
       } shadow-sm`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 px-3 py-2 sm:px-4 sm:py-3">
           
           {/* Logo Section */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onViewChange('home')} id="logo-container">
+          <button type="button" aria-label="Khet Rakshak home" className="flex min-h-12 items-center gap-3 rounded-lg text-left" onClick={() => onViewChange('home')} id="logo-container">
             <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-600/30">
               <Shield className="w-6 h-6 text-white" />
             </div>
@@ -109,11 +137,11 @@ export default function Navigation({
               <h1 className="font-display font-bold text-xl tracking-tight text-emerald-600 flex items-center gap-1.5 dark:text-emerald-400">
                 {t.app_title}
               </h1>
-              <p className="text-[10px] text-gray-500 font-mono tracking-wider font-semibold uppercase">
+              <p className="hidden text-[10px] text-gray-500 font-mono tracking-wider font-semibold uppercase sm:block">
                 {t.app_tagline}
               </p>
             </div>
-          </div>
+          </button>
 
           {/* Quick Stats Banner (For Logged In Users) */}
           {currentRole !== 'guest' && (
@@ -127,47 +155,12 @@ export default function Navigation({
                 <span className="text-gray-500 dark:text-gray-400">User: </span>
                 <span className="font-semibold">{userName} ({userVillage})</span>
               </div>
-              <div className="text-xs h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
-              <div className="text-xs flex items-center gap-1.5" onClick={() => onViewChange('expenses')} style={{ cursor: 'pointer' }}>
-                <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">₹{walletBalance}</span>
-              </div>
             </div>
           )}
 
           {/* Controls Panel */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-1">
             
-            {/* Network Status Toggle */}
-            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 text-xs">
-              <button 
-                onClick={() => onNetworkStatusChange('online')}
-                className={`p-1.5 rounded-md flex items-center gap-1 transition-all ${
-                  networkStatus === 'online' 
-                    ? 'bg-emerald-600 text-white font-semibold' 
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-                title="Simulate Strong Internet"
-                id="net-online"
-              >
-                <Radio className="w-3 h-3" />
-                <span className="hidden sm:inline">Online</span>
-              </button>
-              <button 
-                onClick={() => onNetworkStatusChange('offline')}
-                className={`p-1.5 rounded-md flex items-center gap-1 transition-all ${
-                  networkStatus === 'offline' 
-                    ? 'bg-red-600 text-white font-semibold' 
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-                title="Simulate No Internet"
-                id="net-offline"
-              >
-                <AlertTriangle className="w-3 h-3" />
-                <span className="hidden sm:inline">Offline</span>
-              </button>
-            </div>
-
             {/* Accessibility: Font Size Scaler */}
             <button 
               onClick={onLargeTextToggle}
@@ -177,6 +170,8 @@ export default function Navigation({
                   : 'bg-transparent text-gray-500 border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
               title="Toggle Large Text for Visibility"
+              aria-label="Toggle larger text"
+              aria-pressed={isLargeText}
               id="accessibility-text-toggle"
             >
               <Type className="w-4 h-4" />
@@ -187,6 +182,8 @@ export default function Navigation({
               onClick={onThemeToggle}
               className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               title="Toggle Light/Dark Theme"
+              aria-label="Toggle light or dark theme"
+              aria-pressed={currentTheme === 'dark'}
               id="theme-toggle-btn"
             >
               {currentTheme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
@@ -201,6 +198,8 @@ export default function Navigation({
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 id="language-selector-btn"
+                aria-label={`Language: ${languagesList.find(l => l.code === currentLanguage)?.name}`}
+                aria-expanded={isLangDropdownOpen}
               >
                 <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>{languagesList.find(l => l.code === currentLanguage)?.native}</span>
@@ -208,7 +207,7 @@ export default function Navigation({
               </button>
               
               {isLangDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl z-50 py-1 grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700 animate-in fade-in slide-in-from-top-2 duration-100">
+                <div aria-label="Choose language" className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl z-50 py-1 grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700">
                   {languagesList.map((lang) => (
                     <button
                       key={lang.code}
@@ -222,6 +221,7 @@ export default function Navigation({
                           : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                       }`}
                       id={`lang-select-${lang.code}`}
+                      aria-pressed={currentLanguage === lang.code}
                     >
                       <span>{lang.native}</span>
                       <span className="text-[10px] text-gray-400 font-mono">{lang.name}</span>
@@ -237,6 +237,7 @@ export default function Navigation({
                 onClick={onOpenNotifications}
                 className="relative p-2 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 id="notifications-bell-btn"
+                aria-label={unreadAlertsCount ? `Notifications, ${unreadAlertsCount} unread` : 'Notifications'}
               >
                 <Bell className="w-4 h-4" />
                 {unreadAlertsCount > 0 && (
@@ -254,8 +255,11 @@ export default function Navigation({
                   setIsProfileDropdownOpen(!isProfileDropdownOpen);
                   setIsLangDropdownOpen(false);
                 }}
-                className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center justify-center overflow-hidden cursor-pointer"
+                className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center justify-center overflow-hidden cursor-pointer"
                 id="profile-dropdown-btn"
+                aria-label="Open profile menu"
+                aria-expanded={isProfileDropdownOpen}
+                aria-haspopup="menu"
               >
                 <User className="w-4 h-4" />
               </button>
@@ -314,6 +318,10 @@ export default function Navigation({
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600"
               id="mobile-hamburger-btn"
+              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation-panel"
+              ref={mobileMenuButtonRef}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -321,18 +329,42 @@ export default function Navigation({
         </div>
       </header>
 
+      {currentRole !== 'guest' && (
+        <nav aria-label="Main navigation" className="hidden border-b border-[#7b8d80] bg-white px-4 dark:border-gray-700 dark:bg-gray-900 lg:block">
+          <div className="mx-auto flex max-w-7xl flex-wrap gap-2 py-2">
+            {(currentRole === 'farmer'
+              ? [
+                  ['dashboard', t.farmer_dashboard], ['farms', t.farms], ['drone-analysis', t.overall_health],
+                  ['booking-flow', t.book_drone], ['bookings-list', t.my_bookings], ['sensors', t.view_sensors],
+                  ['advisory', t.advisory], ['expert', t.expert], ['expenses', t.expenses],
+                ]
+              : currentRole === 'drone_pilot'
+                ? [['operator-dash', t.operator_dashboard]]
+                : currentRole === 'outlet_manager'
+                  ? [['manager-dash', t.manager_dashboard]]
+                  : [['admin-dash', t.admin_dashboard]]
+            ).map(([view, label]) => (
+              <button key={view} onClick={() => onViewChange(view)} aria-current={currentView === view ? 'page' : undefined}
+                className={`min-h-11 rounded-lg px-4 text-base font-semibold ${currentView === view ? 'bg-[#e9f3e9] text-[#174c2c] dark:bg-[#263e2e] dark:text-[#a5e8b5]' : 'text-[#465449] hover:bg-[#f1f7f1] dark:text-[#c2cec3] dark:hover:bg-[#23372a]'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+
       {/* Mobile Top Warning Banner for offline */}
       {networkStatus === 'offline' && (
         <div className="bg-red-600 text-white text-xs py-1.5 px-4 text-center font-bold flex items-center justify-center gap-2 animate-pulse">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>OFFLINE MODE: Sign-in and protected services require an internet connection.</span>
+          <span>You are offline. Sign-in and services that need internet will not work until you reconnect.</span>
         </div>
       )}
 
       {/* Mobile Sidebar overlay menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className={`w-72 max-w-full h-full p-5 flex flex-col justify-between ${
+          <nav ref={mobileNavigationRef} id="mobile-navigation-panel" role="dialog" aria-modal="true" aria-label="Navigation menu" className={`w-72 max-w-full h-full overflow-y-auto p-5 flex flex-col justify-between ${
             currentTheme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
           }`} onClick={e => e.stopPropagation()}>
             <div className="space-y-6">
@@ -376,7 +408,7 @@ export default function Navigation({
                     </button>
                     <button onClick={() => { onViewChange('drone-analysis'); setIsMobileMenuOpen(false); }} className={getNavClass('drone-analysis')} id="mob-nav-analysis">
                       <Shield className="w-5 h-5" />
-                      <span>AI Drone Analysis</span>
+                      <span>{t.overall_health}</span>
                     </button>
                     <button onClick={() => { onViewChange('sensors'); setIsMobileMenuOpen(false); }} className={getNavClass('sensors')} id="mob-nav-sensors">
                       <Radio className="w-5 h-5" />
@@ -389,6 +421,10 @@ export default function Navigation({
                     <button onClick={() => { onViewChange('expert'); setIsMobileMenuOpen(false); }} className={getNavClass('expert')} id="mob-nav-expert">
                       <PhoneCall className="w-5 h-5" />
                       <span>{t.expert}</span>
+                    </button>
+                    <button onClick={() => { onViewChange('expenses'); setIsMobileMenuOpen(false); }} className={getNavClass('expenses')} id="mob-nav-expenses">
+                      <Wallet className="w-5 h-5" />
+                      <span>{t.expenses}</span>
                     </button>
                   </>
                 )}
@@ -421,7 +457,7 @@ export default function Navigation({
               <div className="text-xs text-gray-500 mb-2">Developed for MSME Innovation Hub</div>
               <p className="text-[10px] text-gray-400 leading-relaxed">{t.disclaimer}</p>
             </div>
-          </div>
+          </nav>
         </div>
       )}
     </div>
