@@ -15,6 +15,7 @@ function createAuthenticationMiddleware({
 
     let authClient;
     try {
+      req.authFailureStage = "firebase-admin-initialization";
       authClient = firebaseAuth();
     } catch (error) {
       return next(error);
@@ -22,6 +23,7 @@ function createAuthenticationMiddleware({
 
     let decoded;
     try {
+      req.authFailureStage = "firebase-token-verification";
       decoded = await authClient.verifyIdToken(match[1], true);
     } catch (error) {
       const invalidTokenCodes = [
@@ -38,6 +40,7 @@ function createAuthenticationMiddleware({
     }
 
     try {
+      req.authFailureStage = "app-user-upsert";
       const result = await database.query(
         `INSERT INTO app_users (firebase_uid, email, full_name, mobile_number)
          VALUES ($1, $2, $3, $4)
@@ -64,6 +67,7 @@ function createAuthenticationMiddleware({
 
       req.user = user;
       req.firebaseToken = decoded;
+      req.authFailureStage = undefined;
       return next();
     } catch (error) {
       return next(error);

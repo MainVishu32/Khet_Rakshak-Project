@@ -87,6 +87,45 @@ test("invalid Firebase tokens are rejected without querying or creating accounts
   assert.equal(databaseCalled, false);
 });
 
+test("Firebase token verification outages are tagged and forwarded as server errors", async () => {
+  const authenticate = createAuthenticationMiddleware({
+    firebaseAuth: () => ({
+      verifyIdToken: async () => {
+        throw Object.assign(new Error("verification service unavailable"), { code: "auth/internal-error" });
+      },
+    }),
+  });
+  const request = { get: () => "******" };
+  let forwarded;
+  request.get = () => `${String.fromCharCode(66, 101, 97, 114, 101, 114)} verification-outage-token`;
+  await authenticate(request, responseRecorder(), (error) => { forwarded = error; });
+  assert.equal(request.authFailureStage, "firebase-token-verification");
+  assert.equal(forwarded.code, "auth/internal-error");
+});
+
+test("Firebase Admin initialization failures are tagged for safe server diagnostics", async () => {
+  const authenticate = createAuthenticationMiddleware({
+    firebaseAuth: () => { throw Object.assign(new Error("private credential detail"), { code: "app/invalid-credential" }); },
+  });
+  const request = { get: () => "Bearer token-value" };
+  let forwarded;
+  await authenticate(request, responseRecorder(), (error) => { forwarded = error; });
+  assert.equal(request.authFailureStage, "firebase-admin-initialization");
+  assert.equal(forwarded.code, "app/invalid-credential");
+});
+
+test("database upsert failures are tagged after token verification", async () => {
+  const authenticate = createAuthenticationMiddleware({
+    firebaseAuth: () => ({ verifyIdToken: async () => ({ uid: "firebase-1" }) }),
+    database: { query: async () => { throw Object.assign(new Error("database detail"), { code: "23502" }); } },
+  });
+  const request = { get: () => "Bearer token-value" };
+  let forwarded;
+  await authenticate(request, responseRecorder(), (error) => { forwarded = error; });
+  assert.equal(request.authFailureStage, "app-user-upsert");
+  assert.equal(forwarded.code, "23502");
+});
+
 test("role middleware permits the role assigned by the server", () => {
   const response = responseRecorder();
   let advanced = false;
@@ -139,6 +178,8 @@ test("development CORS allows the local Vite origins but rejects unrelated origi
   for (const origin of [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
   ]) {
@@ -152,4 +193,32 @@ test("development CORS allows the local Vite origins but rejects unrelated origi
   });
   assert.equal(rejected.status, 403);
   assert.equal(rejected.headers.get("access-control-allow-origin"), null);
+});
+
+test("liveness and readiness health endpoints do not expose internal details", async (context) => {
+  const server = app.listen(0);
+  context.after(() => new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+  await new Promise((resolve) => server.once("listening", resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  const liveness = await fetch(`${baseUrl}/health`);
+  assert.equal(liveness.status, 200);
+  assert.deepEqual(await liveness.json(), { success: true, status: "alive" });
+
+  const configuredDatabaseUrl = process.env.DATABASE_URL;
+  try {
+    delete process.env.DATABASE_URL;
+    const readiness = await fetch(`${baseUrl}/api/health`);
+    assert.equal(readiness.status, 503);
+    assert.deepEqual(await readiness.json(), {
+      success: false,
+      status: "not_ready",
+      database: "not_configured",
+    });
+  } finally {
+    if (configuredDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = configuredDatabaseUrl;
+  }
 });

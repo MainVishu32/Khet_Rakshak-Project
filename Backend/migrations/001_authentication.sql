@@ -1,6 +1,4 @@
-BEGIN;
-
-CREATE TABLE IF NOT EXISTS app_users (
+CREATE TABLE IF NOT EXISTS public.app_users (
   id BIGSERIAL PRIMARY KEY,
   firebase_uid VARCHAR(128) NOT NULL UNIQUE,
   email VARCHAR(320),
@@ -16,19 +14,17 @@ CREATE TABLE IF NOT EXISTS app_users (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS app_users_mobile_unique
-  ON app_users (mobile_number) WHERE mobile_number IS NOT NULL;
+  ON public.app_users (mobile_number) WHERE mobile_number IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS role_requests (
+CREATE TABLE IF NOT EXISTS public.role_requests (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   requested_role VARCHAR(20) NOT NULL
     CHECK (requested_role IN ('DRONE_PILOT', 'OUTLET_MANAGER')),
   status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
     CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
-  reviewed_by BIGINT REFERENCES app_users(id),
+  reviewed_by BIGINT REFERENCES public.app_users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reviewed_at TIMESTAMPTZ,
   UNIQUE (user_id, requested_role)
 );
-
-COMMIT;

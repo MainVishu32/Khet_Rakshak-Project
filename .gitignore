@@ -1,9 +1,15 @@
 Frontend/node_modules/
 Frontend/dist/
-Frontend/.env
-
 Backend/node_modules/
-Backend/.env
+**/node_modules/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+**/*service-account*.json
+**/*firebase-adminsdk*.json
+*.pem
+*.key
 
 .vscode/
 *.log
