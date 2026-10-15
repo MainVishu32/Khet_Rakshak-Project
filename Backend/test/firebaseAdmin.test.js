@@ -4,6 +4,7 @@ const { createFirebaseAdmin } = require("../services/firebaseAdmin");
 
 function createAdminSdk({ credentialFactory, initializeApp = (options) => ({ options }) } = {}) {
   const apps = [];
+  let initializeCount = 0;
   return {
     apps,
     credential: {
@@ -11,9 +12,13 @@ function createAdminSdk({ credentialFactory, initializeApp = (options) => ({ opt
       applicationDefault: credentialFactory || (() => ({ getAccessToken: async () => ({ access_token: "test-token", expires_in: 3600 }) })),
     },
     initializeApp(options) {
+      initializeCount += 1;
       const app = initializeApp(options);
       apps.push(app);
       return app;
+    },
+    get initializeCount() {
+      return initializeCount;
     },
     auth(app) {
       return { app };
@@ -35,7 +40,11 @@ test("Firebase Admin requires FIREBASE_PROJECT_ID", () => {
   const service = createFirebaseAdmin({ adminSdk: createAdminSdk(), env: {} });
   assert.throws(
     () => service.getFirebaseAuth(),
-    { code: "firebase-admin/configuration-error", message: /FIREBASE_PROJECT_ID is required/ }
+    {
+      code: "firebase-admin/configuration-error",
+      message: /FIREBASE_PROJECT_ID is required/,
+      missingVariables: ["FIREBASE_PROJECT_ID"],
+    }
   );
 });
 
@@ -74,6 +83,23 @@ test("malformed service-account JSON is rejected without exposing its contents",
     () => service.getFirebaseAuth(),
     (error) => error.code === "firebase-admin/malformed-credentials" &&
       !error.message.includes("private malformed content")
+  );
+});
+
+test("service-account validation reports missing fields without exposing credential values", () => {
+  const service = createFirebaseAdmin({
+    adminSdk: createAdminSdk(),
+    env: {
+      FIREBASE_PROJECT_ID: "khet-rakshak",
+      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ project_id: "khet-rakshak" }),
+    },
+  });
+
+  assert.throws(
+    () => service.getFirebaseAuth(),
+    (error) => error.code === "firebase-admin/malformed-credentials" &&
+      error.invalidFields.join(",") === "type,client_email,private_key" &&
+      error.message.includes("type, client_email, private_key")
   );
 });
 
@@ -150,4 +176,42 @@ test("valid service-account JSON initializes Admin for the configured project", 
   assert.equal(service.getFirebaseAuth().app.options.projectId, "khet-rakshak");
   assert.equal(receivedOptions.projectId, "khet-rakshak");
   await service.verifyFirebaseAdminCredentials();
+});
+
+test("service-account private keys with escaped newlines are normalized before initialization", () => {
+  let receivedServiceAccount;
+  const adminSdk = createAdminSdk({
+    credentialFactory: (serviceAccount) => {
+      receivedServiceAccount = serviceAccount;
+      return { getAccessToken: async () => ({ access_token: "test-token", expires_in: 3600 }) };
+    },
+  });
+  const service = createFirebaseAdmin({
+    adminSdk,
+    env: {
+      FIREBASE_PROJECT_ID: "khet-rakshak",
+      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
+        type: "service_account",
+        project_id: "khet-rakshak",
+        client_email: "test@example.invalid",
+        private_key: "line one\\nline two",
+      }),
+    },
+  });
+
+  service.getFirebaseAuth();
+  assert.equal(receivedServiceAccount.private_key, "line one\nline two");
+});
+
+test("an already initialized Firebase Admin app is reused", () => {
+  const adminSdk = createAdminSdk();
+  const existingApp = { options: { projectId: "khet-rakshak" } };
+  adminSdk.apps.push(existingApp);
+  const service = createFirebaseAdmin({
+    adminSdk,
+    env: { FIREBASE_PROJECT_ID: "khet-rakshak" },
+  });
+
+  assert.equal(service.getFirebaseAuth().app, existingApp);
+  assert.equal(adminSdk.initializeCount, 0);
 });

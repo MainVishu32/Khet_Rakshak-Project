@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const { randomUUID } = require("node:crypto");
 const pool = require("./config/db");
 const { getDatabaseReadiness } = require("./services/readiness");
+const { getSafeDatabaseErrorDetails } = require("./services/databaseDiagnostics");
 const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 
@@ -82,13 +83,15 @@ app.use((error, req, res, _next) => {
   const code = typeof error.code === "string" && /^[a-z0-9_/-]{1,64}$/i.test(error.code)
     ? error.code
     : "unknown";
-  console.error("Unhandled request error.", {
+  const logDetails = {
     requestId: req.requestId,
     method: req.method,
     path: req.path,
     stage: req.authFailureStage || "request-handler",
     code,
-  });
+  };
+  Object.assign(logDetails, getSafeDatabaseErrorDetails(error));
+  console.error("Unhandled request error.", logDetails);
   return res.status(500).json({
     message: "An unexpected server error occurred.",
     requestId: req.requestId,
@@ -113,6 +116,10 @@ if (require.main === module) {
         projectId: process.env.FIREBASE_PROJECT_ID || "missing",
         credentialSource,
         code,
+        diagnostic: error.message,
+        missingVariables: Array.isArray(error.missingVariables) ? error.missingVariables : [],
+        invalidFields: Array.isArray(error.invalidFields) ? error.invalidFields : [],
+        mismatchedFields: Array.isArray(error.mismatchedFields) ? error.mismatchedFields : [],
         remediation: credentialSource === "Application Default Credentials"
           ? "Configure local ADC with gcloud auth application-default login or set GOOGLE_APPLICATION_CREDENTIALS."
           : credentialSource === "GOOGLE_APPLICATION_CREDENTIALS"

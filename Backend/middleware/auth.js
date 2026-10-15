@@ -42,13 +42,13 @@ function createAuthenticationMiddleware({
     try {
       req.authFailureStage = "app-user-upsert";
       const result = await database.query(
-        `INSERT INTO app_users (firebase_uid, email, full_name, mobile_number)
+        `INSERT INTO public.app_users AS app_user (firebase_uid, email, full_name, mobile_number)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (firebase_uid) DO UPDATE SET
-           email = COALESCE(EXCLUDED.email, app_users.email),
-           full_name = CASE WHEN app_users.full_name = ''
-             THEN EXCLUDED.full_name ELSE app_users.full_name END,
-           mobile_number = COALESCE(EXCLUDED.mobile_number, app_users.mobile_number),
+           email = COALESCE(EXCLUDED.email, app_user.email),
+           full_name = CASE WHEN app_user.full_name = ''
+             THEN EXCLUDED.full_name ELSE app_user.full_name END,
+           mobile_number = COALESCE(EXCLUDED.mobile_number, app_user.mobile_number),
            updated_at = NOW()
          RETURNING id, firebase_uid, email, full_name, mobile_number, village,
                    role, account_status`,

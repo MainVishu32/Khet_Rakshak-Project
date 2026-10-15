@@ -24,7 +24,7 @@ router.patch("/profile", authenticate, async (req, res, next) => {
 
   try {
     const result = await pool.query(
-      `UPDATE app_users SET full_name = $1, village = $2, updated_at = NOW()
+      `UPDATE public.app_users SET full_name = $1, village = $2, updated_at = NOW()
        WHERE id = $3
        RETURNING id, firebase_uid, email, full_name, mobile_number, village,
                  role, account_status`,
@@ -43,14 +43,14 @@ router.post("/role-requests/drone-pilot", authenticate, async (req, res, next) =
 
   try {
     await pool.query(
-      `INSERT INTO role_requests (user_id, requested_role)
+      `INSERT INTO public.role_requests AS role_request (user_id, requested_role)
        VALUES ($1, 'DRONE_PILOT')
        ON CONFLICT (user_id, requested_role) DO UPDATE SET
          status = 'PENDING',
          reviewed_by = NULL,
          reviewed_at = NULL,
          created_at = NOW()
-       WHERE role_requests.status IN ('REJECTED', 'APPROVED')`,
+       WHERE role_request.status IN ('REJECTED', 'APPROVED')`,
       [req.user.id]
     );
     return res.status(202).json({ status: "PENDING" });
@@ -72,7 +72,7 @@ router.get("/admin/users", authenticate, requireRole("ADMIN"), async (req, res, 
   try {
     const result = await pool.query(
       `SELECT id::text AS id, email, full_name, mobile_number, village, role, account_status, created_at
-       FROM app_users ORDER BY created_at DESC LIMIT 200`
+       FROM public.app_users ORDER BY created_at DESC LIMIT 200`
     );
     return res.json({ users: result.rows });
   } catch (error) {
@@ -85,8 +85,8 @@ router.get("/admin/role-requests", authenticate, requireRole("ADMIN"), async (_r
     const result = await pool.query(
       `SELECT r.id::text AS id, r.requested_role, r.status, r.created_at,
               u.id::text AS user_id, u.full_name, u.email, u.mobile_number, u.village
-       FROM role_requests r
-       JOIN app_users u ON u.id = r.user_id
+       FROM public.role_requests r
+       JOIN public.app_users u ON u.id = r.user_id
        WHERE r.status = 'PENDING'
        ORDER BY r.created_at ASC
        LIMIT 200`
@@ -113,7 +113,7 @@ router.patch(
     try {
       await client.query("BEGIN");
       const request = await client.query(
-        `SELECT id, user_id, requested_role FROM role_requests
+        `SELECT id, user_id, requested_role FROM public.role_requests
          WHERE id = $1 AND status = 'PENDING' FOR UPDATE`,
         [requestId]
       );
@@ -123,13 +123,13 @@ router.patch(
       }
       const roleRequest = request.rows[0];
       await client.query(
-        `UPDATE role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+        `UPDATE public.role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
          WHERE id = $3`,
         [status, req.user.id, requestId]
       );
       if (status === "APPROVED") {
         await client.query(
-          `UPDATE app_users SET role = $1, updated_at = NOW() WHERE id = $2`,
+          `UPDATE public.app_users SET role = $1, updated_at = NOW() WHERE id = $2`,
           [roleRequest.requested_role, roleRequest.user_id]
         );
       }
@@ -164,7 +164,7 @@ router.patch(
       try {
         await client.query("BEGIN");
         const updated = await client.query(
-          `UPDATE app_users SET role = $1, updated_at = NOW()
+          `UPDATE public.app_users SET role = $1, updated_at = NOW()
            WHERE id = $2
            RETURNING id`,
           [role, userId]
@@ -174,7 +174,7 @@ router.patch(
           return res.status(404).json({ message: "User was not found." });
         }
         await client.query(
-          `UPDATE role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+          `UPDATE public.role_requests SET status = $1, reviewed_by = $2, reviewed_at = NOW()
            WHERE user_id = $3 AND requested_role = 'DRONE_PILOT' AND status = 'PENDING'`,
           [role === "DRONE_PILOT" ? "APPROVED" : "REJECTED", req.user.id, userId]
         );

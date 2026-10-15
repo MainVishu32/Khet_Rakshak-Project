@@ -138,14 +138,15 @@ const REQUIRED_CONSTRAINTS = [
   ["role_requests", "role_requests_reviewed_by_fkey", "f", ["foreign key (reviewed_by)", "references app_users(id)"]],
 ];
 
-async function checkApplicationSchema(queryable) {
+async function checkApplicationSchema(queryable, { skipTables = [] } = {}) {
+  const requiredColumns = REQUIRED_COLUMNS.filter(([table]) => !skipTables.includes(table));
   const columns = await queryable.query(
     `SELECT table_name, column_name, data_type, is_nullable, column_default, character_maximum_length
      FROM information_schema.columns
      WHERE table_schema = 'public' AND table_name IN ('app_users', 'role_requests')`
   );
   const columnsByKey = new Map(columns.rows.map((column) => [`${column.table_name}.${column.column_name}`, column]));
-  const columnsReady = REQUIRED_COLUMNS.every(([table, column, type, nullable, hasDefault, maxLength]) => {
+  const columnsReady = requiredColumns.every(([table, column, type, nullable, hasDefault, maxLength]) => {
     const actual = columnsByKey.get(`${table}.${column}`);
     return actual && actual.data_type === type && actual.is_nullable === (nullable ? "YES" : "NO") &&
       (!hasDefault || actual.column_default !== null) &&
@@ -166,20 +167,23 @@ async function checkApplicationSchema(queryable) {
   const definitionsByKey = new Map(constraints.rows.map((constraint) =>
     [`${constraint.table_name}.${constraint.constraint_name}.${constraint.constraint_type}`, constraint.constraint_definition.toLowerCase()]
   ));
-  const constraintsReady = REQUIRED_CONSTRAINTS.every(([table, name, type, fragments]) => {
+  const requiredConstraints = REQUIRED_CONSTRAINTS.filter(([table]) => !skipTables.includes(table));
+  const constraintsReady = requiredConstraints.every(([table, name, type, fragments]) => {
     const definition = definitionsByKey.get(`${table}.${name}.${type}`);
     return definition && fragments.every((fragment) => definition.includes(fragment));
   });
 
-  const index = await queryable.query(
-    `SELECT EXISTS (
-       SELECT 1 FROM pg_indexes
-       WHERE schemaname = 'public' AND tablename = 'app_users'
-         AND indexname = 'app_users_mobile_unique'
-         AND indexdef ILIKE '%UNIQUE%' AND indexdef ILIKE '%WHERE (mobile_number IS NOT NULL)%'
-     ) AS mobile_index_ready`
-  );
-  return columnsReady && constraintsReady && index.rows[0].mobile_index_ready;
+  const indexReady = skipTables.includes("app_users")
+    ? true
+    : (await queryable.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM pg_indexes
+         WHERE schemaname = 'public' AND tablename = 'app_users'
+           AND indexname = 'app_users_mobile_unique'
+           AND indexdef ILIKE '%UNIQUE%' AND indexdef ILIKE '%WHERE (mobile_number IS NOT NULL)%'
+       ) AS mobile_index_ready`
+    )).rows[0].mobile_index_ready;
+  return columnsReady && constraintsReady && indexReady;
 }
 
 module.exports = {

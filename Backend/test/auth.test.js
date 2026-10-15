@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { createAuthenticationMiddleware, requireRole } = require("../middleware/auth");
 const app = require("../server");
 
@@ -31,7 +33,9 @@ test("verified Firebase identity is loaded from the database, not request role d
   const authenticate = createAuthenticationMiddleware({
     firebaseAuth: () => ({ verifyIdToken: async () => ({ uid: "firebase-1" }) }),
     database: {
-      query: async (_sql, params) => {
+      query: async (sql, params) => {
+        assert.match(sql, /INSERT INTO public\.app_users AS app_user/);
+        assert.match(sql, /app_user\.email/);
         assert.deepEqual(params, ["firebase-1", null, "", null]);
         return { rows: [{
           id: 7, firebase_uid: "firebase-1", role: "FARMER", account_status: "ACTIVE",
@@ -45,6 +49,25 @@ test("verified Firebase identity is loaded from the database, not request role d
   await authenticate(request, response, () => { advanced = true; });
   assert.equal(advanced, true);
   assert.equal(request.user.role, "FARMER");
+});
+
+test("auth upsert columns are supplied by the additive schema migration", () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, "..", "migrations", "002_ensure_auth_tables.sql"),
+    "utf8"
+  );
+  for (const column of [
+    "firebase_uid",
+    "email",
+    "full_name",
+    "mobile_number",
+    "village",
+    "role",
+    "account_status",
+    "updated_at",
+  ]) {
+    assert.match(migration, new RegExp(`\\b${column}\\b`));
+  }
 });
 
 test("role middleware denies farmer access to administrator resources", () => {

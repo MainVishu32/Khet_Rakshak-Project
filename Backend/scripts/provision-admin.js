@@ -14,10 +14,10 @@ async function provisionAdmin() {
   }
 
   const result = await pool.query(
-    `INSERT INTO app_users (firebase_uid, email, full_name, mobile_number, role)
+    `INSERT INTO public.app_users AS app_user (firebase_uid, email, full_name, mobile_number, role)
      VALUES ($1, $2, $3, $4, 'ADMIN')
      ON CONFLICT (firebase_uid) DO UPDATE SET
-       email = COALESCE(EXCLUDED.email, app_users.email),
+       email = COALESCE(EXCLUDED.email, app_user.email),
        role = 'ADMIN',
        account_status = 'ACTIVE',
        updated_at = NOW()

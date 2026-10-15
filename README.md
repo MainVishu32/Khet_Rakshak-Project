@@ -18,16 +18,17 @@ The frontend uses Google sign-in only. Profile setup requires a name and village
 
 1. Create `Backend/.env` from `Backend/.env.example`; keep `FIREBASE_PROJECT_ID=khet-rakshak`, set `DATABASE_URL` to your PostgreSQL connection string, and set `FRONTEND_URL` to the exact frontend origin you deploy (for local development, use the actual frontend port, such as `http://localhost:3001`).
 2. Provide Firebase Admin credentials to the backend only. In production, use the deployment platform's Application Default Credentials/workload identity. For local development, use a service-account JSON string in `FIREBASE_SERVICE_ACCOUNT_JSON` or configure Google Application Default Credentials. Do not commit the credentials or print them to logs.
-3. From `Backend`, inspect and apply pending migrations:
+3. From `Backend`, inspect and apply pending migrations. For a production database, use the confirmation-gated migration command:
 
    ```powershell
    Set-Location .\Backend
-   npm run db:status
-   npm run db:migrate
-   npm run db:status
+   $env:DATABASE_SSL = 'true'
+   npm run db:migrate:confirmed
    ```
 
-The migration system tracks applied files in `public.app_schema_migrations`, applies each pending migration transactionally under a PostgreSQL advisory lock, and is safe to rerun. The initial migration creates only `app_users`, `role_requests`, and the mobile unique index; it does not alter or delete existing farmer, farm, or booking data. Supabase is used as PostgreSQL only; identities remain in Firebase Authentication. Existing password/demo farmer accounts are not automatically linked to Firebase identities.
+The confirmation-gated command reads `DATABASE_URL` from the environment or `Backend/.env`, or securely prompts for it with input hidden. It checks and displays the database name, schema, migration history, and readiness before any migration, then verifies migration status and schema after it runs. It shows a provider category and a one-way fingerprint without displaying the URL or hostname, and requires typing the exact target confirmation before making changes. If Render Shell is unavailable, provide the externally reachable database URL configured for the Render service in the hidden prompt and confirm the displayed target matches production. Do not use an internal-only Render URL from a local computer. Before running this command, set `DATABASE_SSL=true` and keep `DATABASE_SSL_REJECT_UNAUTHORIZED=true`; the confirmed workflow refuses to connect unless TLS and certificate validation are enabled. `npm run db:status` is read-only but requires an already configured `DATABASE_URL`; it is optional because the confirmed command performs these checks itself.
+
+The migration system tracks applied files in `public.app_schema_migrations`, applies each pending migration transactionally under a PostgreSQL advisory lock, and is safe to rerun. `002_ensure_auth_tables.sql` idempotently creates `public.app_users`, `public.role_requests`, and the mobile unique index only when absent; it does not overwrite or delete existing records. Supabase is used as PostgreSQL only where configured; the deployed Render `DATABASE_URL` provider must be verified in Render settings. Identities remain in Firebase Authentication. Existing password/demo farmer accounts are not automatically linked to Firebase identities.
 4. Start the API:
 
    ```powershell
@@ -72,9 +73,9 @@ Render is a suitable option for this existing Node/Express service and can host 
 
 1. Push this repository to `MainVishu32/Khet_Rakshak-Project` and connect that repository in Render.
 2. Create a **Web Service**. Set **Root Directory** to `Backend`, **Build Command** to `npm ci`, and **Start Command** to `npm start`.
-3. Create a PostgreSQL database in the same Render region. Set the API's `DATABASE_URL` to the database's internal connection URL. If using a provider that requires TLS, set `DATABASE_SSL=true`; keep `DATABASE_SSL_REJECT_UNAUTHORIZED=true` unless that provider documents another requirement.
+3. Set the Render API's `DATABASE_URL` to the intended PostgreSQL database. Supabase is used in the current local configuration; verify Render's value points to that same database before migrating. Do not create or use a second database unless intentionally changing providers. If using Render PostgreSQL, its internal URL works from Render but not from a local computer; use the provider's external URL to the same database for a local migration. Set `DATABASE_SSL=true` when required and keep `DATABASE_SSL_REJECT_UNAUTHORIZED=true`.
 4. Add the environment variables from the table below in the Render service's Environment settings. For Firebase Admin, use a service account JSON stored as a secret under `FIREBASE_SERVICE_ACCOUNT_JSON`, or configure supported Application Default Credentials. Never put a service account in the repository or a `VITE_*` variable.
-5. From `Backend`, run `npm run db:status` to inspect the pending migration, then `npm run db:migrate`, and `npm run db:status` again. The command must have the production `DATABASE_URL` available from a secure local environment or the Render service's shell. It creates the app identity and role request tables; it does not populate farm or booking tables.
+5. If Render Shell is unavailable, use the Windows `npm run db:migrate:confirmed` workflow documented above against a publicly reachable URL for the same PostgreSQL database used by the Render service. It verifies the migration state before and after applying changes. `npm run db:migrate` remains available for trusted non-interactive automation but does not request operator confirmation.
 6. After deployment, use the service URL Render assigns as the backend base origin. Check `https://<assigned-service-host>/health` for liveness and `/api/health` for PostgreSQL and migration readiness. Do not guess or hardcode the assigned host before Render creates the service.
 
 ### Configure Vercel and Firebase
@@ -90,7 +91,7 @@ Render is a suitable option for this existing Node/Express service and can host 
 | --- | --- | --- |
 | `NODE_ENV=production` | Backend | Render API service environment |
 | `PORT` | Backend | Set by Render; do not hardcode it |
-| `DATABASE_URL` | Backend | Render API secret, using the PostgreSQL internal URL |
+| `DATABASE_URL` | Backend | Render API secret for the intended PostgreSQL database; use its external counterpart from a local computer |
 | `DATABASE_SSL` | Backend | Render API environment; `true` only when the DB endpoint requires TLS |
 | `DATABASE_SSL_REJECT_UNAUTHORIZED` | Backend | Keep `true` by default |
 | `FIREBASE_PROJECT_ID=khet-rakshak` | Backend | Render API environment |

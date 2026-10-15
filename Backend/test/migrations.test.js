@@ -66,12 +66,35 @@ test("migration discovery orders versioned SQL and rejects malformed or duplicat
   assert.throws(() => discoverMigrations(directory), /Duplicate migration version/);
 });
 
+test("authentication repair migration is additive and follows the original schema migration", () => {
+  const migrations = discoverMigrations();
+  assert.deepEqual(
+    migrations.map((migration) => migration.filename),
+    ["001_authentication.sql", "002_ensure_auth_tables.sql"]
+  );
+  const repairSql = fs.readFileSync(migrations[1].path, "utf8");
+  assert.match(repairSql, /CREATE TABLE IF NOT EXISTS public\.app_users/);
+  assert.match(repairSql, /CREATE TABLE IF NOT EXISTS public\.role_requests/);
+  assert.match(repairSql, /exists outside public; refusing to create a second table/);
+  assert.doesNotMatch(repairSql, /^\s*(DROP\s+TABLE|TRUNCATE|DELETE\s+FROM|INSERT\s+INTO|UPDATE)\b/im);
+  assert.match(repairSql, /CREATE UNIQUE INDEX IF NOT EXISTS app_users_mobile_unique/);
+});
+
 test("migration status reports all migrations pending when history does not exist", async (t) => {
   const directory = fixtureDirectory(t);
   const pool = fakePool();
   const status = await getMigrationStatus(pool, directory);
   assert.equal(status.pending.length, 1);
   assert.equal(status.applied.length, 0);
+});
+
+test("an already-applied original migration leaves the additive repair migration pending", async () => {
+  const pool = fakePool();
+  pool.state.historyExists = true;
+  pool.state.rows.push({ version: "001", name: "authentication" });
+  const status = await getMigrationStatus(pool);
+  assert.deepEqual(status.applied.map((migration) => migration.filename), ["001_authentication.sql"]);
+  assert.deepEqual(status.pending.map((migration) => migration.filename), ["002_ensure_auth_tables.sql"]);
 });
 
 test("migrations are recorded transactionally and repeat runs are no-ops", async (t) => {
@@ -129,6 +152,33 @@ test("schema readiness requires all application columns, constraints, and indexe
   assert.equal(await checkApplicationSchema(missingIndex), false);
 });
 
+test("schema preflight validates existing tables while allowing an absent table to be created", async () => {
+  const columns = REQUIRED_COLUMNS.filter(([table]) => table === "app_users").map(
+    ([table_name, column_name, data_type, nullable, hasDefault, character_maximum_length]) => ({
+      table_name,
+      column_name,
+      data_type,
+      is_nullable: nullable ? "YES" : "NO",
+      column_default: hasDefault ? "configured_default" : null,
+      character_maximum_length,
+    })
+  );
+  const constraints = REQUIRED_CONSTRAINTS.filter(([table]) => table === "app_users").map(
+    ([table_name, constraint_name, kind, fragments]) => ({
+      table_name,
+      constraint_name,
+      constraint_type: kind,
+      constraint_definition: fragments.join(" "),
+    })
+  );
+  const existingAppUsers = { async query(sql) {
+    if (sql.includes("information_schema.columns")) return { rows: columns };
+    if (sql.includes("FROM pg_constraint")) return { rows: constraints };
+    return { rows: [{ mobile_index_ready: true }] };
+  } };
+  assert.equal(await checkApplicationSchema(existingAppUsers, { skipTables: ["role_requests"] }), true);
+});
+
 test("readiness distinguishes unconfigured, unreachable, unmigrated, and ready databases", async () => {
   const unconfigured = await getDatabaseReadiness({ query: async () => { throw new Error("must not connect"); } }, { databaseUrl: "" });
   assert.equal(unconfigured.body.database, "not_configured");
@@ -160,7 +210,10 @@ test("readiness distinguishes unconfigured, unreachable, unmigrated, and ready d
   const readyDatabase = { async query(sql) {
     if (sql === "SELECT 1") return { rows: [{ "?column?": 1 }] };
     if (sql.includes("to_regclass")) return { rows: [{ history_table: "app_schema_migrations" }] };
-    if (sql.includes("SELECT version, name, applied_at")) return { rows: [{ version: "001", name: "authentication" }] };
+    if (sql.includes("SELECT version, name, applied_at")) return { rows: [
+      { version: "001", name: "authentication" },
+      { version: "002", name: "ensure_auth_tables" },
+    ] };
     if (sql.includes("information_schema.columns")) return { rows: columns };
     if (sql.includes("FROM pg_constraint")) return { rows: constraints };
     return { rows: [{ mobile_index_ready: true }] };
